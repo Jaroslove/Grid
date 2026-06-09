@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>AngularPivot</title>
+    <base href="/">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+  <script type="module">
+    const jsText = await fetch('/wasm/pivot_wasm.js').then(r => r.text());
+    const blob = new Blob([jsText], { type: 'application/javascript' });
+    const blobUrl = URL.createObjectURL(blob);
+    const { default: init, ...wasm } = await import(blobUrl);
+    await init('/wasm/pivot_wasm_bg.wasm');
+    window.__pivotWasm = wasm;
+    URL.revokeObjectURL(blobUrl);
+  </script>
+</html>

@@ -1,0 +1,84 @@
+{
+  "$schema": "./node_modules/@angular-devkit/build-angular/src/builders/application/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "grid-app": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:application",
+          "options": {
+            "outputPath": "dist/grid-app",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              {
+                "glob": "*.{wasm,js,d.ts}",
+                "input": "src/app/wasm",
+                "output": "/wasm"
+              }
+            ],
+
+            "styles": ["src/styles.scss"],
+
+            "scripts": [],
+
+            "sourceMap": {
+              "scripts": true,
+              "styles": true,
+              "vendor": true
+            },
+              "externalDependencies": [],
+              "loader": {
+                ".wasm": "file"
+              }
+          },
+
+          "configurations": {
+            "production": {
+              "optimization": true,
+              "extractLicenses": true,
+              "sourceMap": false
+            },
+
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+
+          "defaultConfiguration": "development"
+        },
+
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+
+          "configurations": {
+            "development": {
+              "buildTarget": "grid-app:build:development"
+            },
+
+            "production": {
+              "buildTarget": "grid-app:build:production"
+            }
+          },
+
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  },
+
+  "cli": {
+    "analytics": false
+  }
+}
