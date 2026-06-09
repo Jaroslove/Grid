@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
-use serde::{Serialize, Deserialize};
 use web_sys::console;
 
 const FIXED_COL: &str = "competition";
@@ -22,7 +22,7 @@ pub struct PivotEngine {
     columns: Vec<String>,
     col_widths: Vec<f64>,
     expanded_rows: HashSet<usize>,
-    expanded_col_group: bool, 
+    expanded_col_group: bool,
     scroll_y: f64,
     scroll_x: f64,
     viewport_height: f64,
@@ -56,7 +56,7 @@ impl PivotEngine {
         self.canvas_width = width;
         self.canvas_height = height;
         self.viewport_height = height - 54.0 - 10.0; // headers + hscroll bar
-        self.viewport_width = width - 10.0;           // minus vscroll bar
+        self.viewport_width = width - 10.0; // minus vscroll bar
     }
 
     pub fn total_content_height(&self) -> f64 {
@@ -66,10 +66,14 @@ impl PivotEngine {
     }
 
     pub fn set_scroll_x(&mut self, scroll_x: f64) {
-        let total_w: f64 = self.visible_data_columns().iter().map(|col| {
-            let i = self.columns.iter().position(|c| c == col).unwrap();
-            self.col_widths[i]
-        }).sum();
+        let total_w: f64 = self
+            .visible_data_columns()
+            .iter()
+            .map(|col| {
+                let i = self.columns.iter().position(|c| c == col).unwrap();
+                self.col_widths[i]
+            })
+            .sum();
         let max_scroll = (total_w - self.viewport_width).max(0.0);
         self.scroll_x = scroll_x.max(0.0).min(max_scroll);
     }
@@ -79,10 +83,14 @@ impl PivotEngine {
     }
 
     pub fn hscrollbar_thumb_rect(&self) -> Vec<f64> {
-        let total_w: f64 = self.visible_data_columns().iter().map(|col| {
-            let i = self.columns.iter().position(|c| c == col).unwrap();
-            self.col_widths[i]
-        }).sum();
+        let total_w: f64 = self
+            .visible_data_columns()
+            .iter()
+            .map(|col| {
+                let i = self.columns.iter().position(|c| c == col).unwrap();
+                self.col_widths[i]
+            })
+            .sum();
         let track_w = self.viewport_width;
         if total_w <= track_w {
             return vec![0.0, 0.0, 0.0, 0.0];
@@ -90,12 +98,7 @@ impl PivotEngine {
         let thumb_w = (track_w / total_w * track_w).max(30.0);
         let thumb_x = (self.scroll_x / total_w) * track_w;
         // [x, y, width, height]
-        vec![
-            thumb_x,
-            self.canvas_height - 9.0,
-            thumb_w,
-            8.0,
-        ]
+        vec![thumb_x, self.canvas_height - 9.0, thumb_w, 8.0]
     }
 
     pub fn scrollbar_thumb_rect(&self) -> Vec<f64> {
@@ -106,12 +109,7 @@ impl PivotEngine {
         }
         let thumb_h = (track_h / content_h * track_h).max(30.0);
         let thumb_y = (self.scroll_y / content_h) * track_h;
-        vec![
-            self.canvas_width - 10.0,
-            54.0 + thumb_y,
-            8.0,
-            thumb_h,
-        ]
+        vec![self.canvas_width - 10.0, 54.0 + thumb_y, 8.0, thumb_h]
     }
 
     pub fn set_scroll_y(&mut self, scroll_y: f64) {
@@ -154,7 +152,9 @@ impl PivotEngine {
         row_height: f64,
     ) -> i32 {
         let relative_y = py - (start_y + header_h) + scroll_y;
-        if relative_y < 0.0 { return -1; }
+        if relative_y < 0.0 {
+            return -1;
+        }
 
         let mut y = 0.0;
         for (i, _) in self.data.iter().enumerate() {
@@ -187,35 +187,43 @@ impl PivotEngine {
             self.compute_columns_and_widths(ctx)?;
         }
 
-        let row_height     = 25.0;
-        let header_h1      = 30.0;
-        let header_h2      = 24.0;
+        let row_height = 25.0;
+        let header_h1 = 30.0;
+        let header_h2 = 24.0;
         let total_header_h = header_h1 + header_h2;
-        let start_y        = 0.0;
-        let scroll_bar_w   = 10.0;
-        let scroll_bar_h   = 10.0;
+        let start_y = 0.0;
+        let scroll_bar_w = 10.0;
+        let scroll_bar_h = 10.0;
 
-        let width      = self.canvas_width;
-        let height     = self.canvas_height;
+        let width = self.canvas_width;
+        let height = self.canvas_height;
         let viewport_y = start_y + total_header_h;
         let viewport_h = self.viewport_height;
         let viewport_w = self.viewport_width;
 
         let data_cols = self.visible_data_columns();
-        let children  = self.season_children()
-                            .iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let children = self
+            .season_children()
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
 
         let fixed_idx = self.columns.iter().position(|c| c == FIXED_COL).unwrap();
         let group_idx = self.columns.iter().position(|c| c == GROUP_COL).unwrap();
-        let fixed_w   = self.col_widths[fixed_idx];
-        let group_w   = self.col_widths[group_idx];
+        let fixed_w = self.col_widths[fixed_idx];
+        let group_w = self.col_widths[group_idx];
 
         let children_total_w: f64 = if self.expanded_col_group {
-            children.iter().map(|c| {
-                let i = self.columns.iter().position(|x| x == c).unwrap();
-                self.col_widths[i]
-            }).sum()
-        } else { 0.0 };
+            children
+                .iter()
+                .map(|c| {
+                    let i = self.columns.iter().position(|x| x == c).unwrap();
+                    self.col_widths[i]
+                })
+                .sum()
+        } else {
+            0.0
+        };
         let season_span_w = group_w + children_total_w;
 
         // ── Clear ────────────────────────────────────────────────────────────
@@ -231,7 +239,9 @@ impl PivotEngine {
             // scrollable cols start at fixed_w, offset by scroll_x
             let mut x = fixed_w - self.scroll_x;
             for col in &data_cols {
-                if col == FIXED_COL { continue; }
+                if col == FIXED_COL {
+                    continue;
+                }
                 let ci = self.columns.iter().position(|c| c == col).unwrap();
                 let cw = self.col_widths[ci];
                 result.push((col.clone(), x, cw));
@@ -251,18 +261,26 @@ impl PivotEngine {
         let mut y_cursor = 0.0;
         for (row_idx, row) in self.data.iter().enumerate() {
             let is_expanded = self.expanded_rows.contains(&row_idx);
-            let row_top    = y_cursor;
+            let row_top = y_cursor;
             let row_bottom = row_top + row_height;
 
             if row_bottom < self.scroll_y {
                 y_cursor += row_height;
-                if is_expanded { y_cursor += row_height; }
+                if is_expanded {
+                    y_cursor += row_height;
+                }
                 continue;
             }
-            if row_top > self.scroll_y + viewport_h { break; }
+            if row_top > self.scroll_y + viewport_h {
+                break;
+            }
 
-            let screen_y   = viewport_y + (row_top - self.scroll_y);
-            let fill_color = if row_idx % 2 == 0 { "#ffffff" } else { "#fafafa" };
+            let screen_y = viewport_y + (row_top - self.scroll_y);
+            let fill_color = if row_idx % 2 == 0 {
+                "#ffffff"
+            } else {
+                "#fafafa"
+            };
 
             // Row background
             ctx.set_fill_style(&JsValue::from_str(fill_color));
@@ -270,9 +288,13 @@ impl PivotEngine {
 
             // Draw each scrollable col
             for (col, sx, cw) in &col_screen_positions {
-                if col == FIXED_COL { continue; }
+                if col == FIXED_COL {
+                    continue;
+                }
                 // skip if fully outside visible area
-                if sx + cw <= fixed_w || *sx >= viewport_w { continue; }
+                if sx + cw <= fixed_w || *sx >= viewport_w {
+                    continue;
+                }
 
                 ctx.set_stroke_style(&JsValue::from_str("#cccccc"));
                 ctx.set_line_width(1.0);
@@ -296,8 +318,12 @@ impl PivotEngine {
                     ctx.fill_rect(fixed_w, exp_y, viewport_w - fixed_w, row_height);
 
                     for (col, sx, cw) in &col_screen_positions {
-                        if col == FIXED_COL { continue; }
-                        if sx + cw <= fixed_w || *sx >= viewport_w { continue; }
+                        if col == FIXED_COL {
+                            continue;
+                        }
+                        if sx + cw <= fixed_w || *sx >= viewport_w {
+                            continue;
+                        }
 
                         ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
                         ctx.set_line_width(1.0);
@@ -328,18 +354,26 @@ impl PivotEngine {
         let mut y_cursor = 0.0;
         for (row_idx, row) in self.data.iter().enumerate() {
             let is_expanded = self.expanded_rows.contains(&row_idx);
-            let row_top    = y_cursor;
+            let row_top = y_cursor;
             let row_bottom = row_top + row_height;
 
             if row_bottom < self.scroll_y {
                 y_cursor += row_height;
-                if is_expanded { y_cursor += row_height; }
+                if is_expanded {
+                    y_cursor += row_height;
+                }
                 continue;
             }
-            if row_top > self.scroll_y + viewport_h { break; }
+            if row_top > self.scroll_y + viewport_h {
+                break;
+            }
 
-            let screen_y   = viewport_y + (row_top - self.scroll_y);
-            let fill_color = if row_idx % 2 == 0 { "#ffffff" } else { "#fafafa" };
+            let screen_y = viewport_y + (row_top - self.scroll_y);
+            let fill_color = if row_idx % 2 == 0 {
+                "#ffffff"
+            } else {
+                "#fafafa"
+            };
 
             // Pinned cell background + border
             ctx.set_fill_style(&JsValue::from_str(fill_color));
@@ -350,24 +384,30 @@ impl PivotEngine {
 
             // Toggle button
             let btn_size = 16.0;
-            let btn_x    = 4.0;
-            let btn_y    = screen_y + (row_height - btn_size) / 2.0;
+            let btn_x = 4.0;
+            let btn_y = screen_y + (row_height - btn_size) / 2.0;
 
-            ctx.set_fill_style(&JsValue::from_str(
-                if is_expanded { "#dbeafe" } else { "#e2e8f0" }
-            ));
+            ctx.set_fill_style(&JsValue::from_str(if is_expanded {
+                "#dbeafe"
+            } else {
+                "#e2e8f0"
+            }));
             ctx.begin_path();
             ctx.round_rect_with_f64(btn_x, btn_y, btn_size, btn_size, 3.0)?;
             ctx.fill();
-            ctx.set_stroke_style(&JsValue::from_str(
-                if is_expanded { "#3b82f6" } else { "#94a3b8" }
-            ));
+            ctx.set_stroke_style(&JsValue::from_str(if is_expanded {
+                "#3b82f6"
+            } else {
+                "#94a3b8"
+            }));
             ctx.set_line_width(1.0);
             ctx.stroke();
 
-            ctx.set_fill_style(&JsValue::from_str(
-                if is_expanded { "#1d4ed8" } else { "#475569" }
-            ));
+            ctx.set_fill_style(&JsValue::from_str(if is_expanded {
+                "#1d4ed8"
+            } else {
+                "#475569"
+            }));
             ctx.set_font("bold 11px sans-serif");
             ctx.set_text_align("center");
             ctx.set_text_baseline("middle");
@@ -378,7 +418,7 @@ impl PivotEngine {
             let cell_text = row.fields.get(FIXED_COL).map(|s| s.as_str()).unwrap_or("");
             ctx.set_fill_style(&JsValue::from_str("#000000"));
             ctx.set_font("12px sans-serif");
-            let btn_end   = btn_x + btn_size + 4.0;
+            let btn_end = btn_x + btn_size + 4.0;
             let remaining = fixed_w - btn_end;
             ctx.set_text_align("center");
             ctx.set_text_baseline("alphabetic");
@@ -436,22 +476,39 @@ impl PivotEngine {
         ctx.fill_rect(season_draw_x, start_y, season_span_w, header_h1);
         ctx.set_stroke_style(&JsValue::from_str("#93c5fd"));
         ctx.set_line_width(1.0);
-        ctx.stroke_rect(season_draw_x + 0.5, start_y + 0.5, season_span_w - 1.0, header_h1 - 1.0);
+        ctx.stroke_rect(
+            season_draw_x + 0.5,
+            start_y + 0.5,
+            season_span_w - 1.0,
+            header_h1 - 1.0,
+        );
 
         // toggle button
         let btn_size = 16.0;
-        let btn_x    = season_draw_x + 4.0;
-        let btn_y    = start_y + (header_h1 - btn_size) / 2.0;
+        let btn_x = season_draw_x + 4.0;
+        let btn_y = start_y + (header_h1 - btn_size) / 2.0;
 
-        ctx.set_fill_style(&JsValue::from_str(if is_exp { "#bfdbfe" } else { "#e0f2fe" }));
+        ctx.set_fill_style(&JsValue::from_str(if is_exp {
+            "#bfdbfe"
+        } else {
+            "#e0f2fe"
+        }));
         ctx.begin_path();
         ctx.round_rect_with_f64(btn_x, btn_y, btn_size, btn_size, 3.0)?;
         ctx.fill();
-        ctx.set_stroke_style(&JsValue::from_str(if is_exp { "#3b82f6" } else { "#7dd3fc" }));
+        ctx.set_stroke_style(&JsValue::from_str(if is_exp {
+            "#3b82f6"
+        } else {
+            "#7dd3fc"
+        }));
         ctx.set_line_width(1.0);
         ctx.stroke();
 
-        ctx.set_fill_style(&JsValue::from_str(if is_exp { "#1d4ed8" } else { "#0369a1" }));
+        ctx.set_fill_style(&JsValue::from_str(if is_exp {
+            "#1d4ed8"
+        } else {
+            "#0369a1"
+        }));
         ctx.set_font("bold 11px sans-serif");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
@@ -463,27 +520,37 @@ impl PivotEngine {
         ctx.set_font("bold 14px sans-serif");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        let btn_end         = btn_x + btn_size + 4.0;
+        let btn_end = btn_x + btn_size + 4.0;
         let label_remaining = season_span_w - (btn_end - season_draw_x);
         ctx.fill_text(
             GROUP_COL,
             btn_end + label_remaining / 2.0,
             start_y + header_h1 / 2.0,
-        ).map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+        )
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
         // season row 2
         ctx.set_fill_style(&JsValue::from_str("#eff6ff"));
         ctx.fill_rect(season_draw_x, sub_y, season_span_w, header_h2);
         ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
         ctx.set_line_width(1.0);
-        ctx.stroke_rect(season_draw_x + 0.5, sub_y + 0.5, season_span_w - 1.0, header_h2 - 1.0);
+        ctx.stroke_rect(
+            season_draw_x + 0.5,
+            sub_y + 0.5,
+            season_span_w - 1.0,
+            header_h2 - 1.0,
+        );
 
         ctx.set_fill_style(&JsValue::from_str("#1e3a8a"));
         ctx.set_font("bold 12px sans-serif");
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
-        ctx.fill_text(GROUP_COL, season_draw_x + group_w / 2.0, sub_y + header_h2 / 2.0)
-            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+        ctx.fill_text(
+            GROUP_COL,
+            season_draw_x + group_w / 2.0,
+            sub_y + header_h2 / 2.0,
+        )
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
         if self.expanded_col_group {
             ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
@@ -545,24 +612,65 @@ impl PivotEngine {
         ctx.stroke();
         ctx.set_line_width(1.0);
 
-        // ── Resize handles — strictly within header height ────────────────────
-        // Fixed col right border
+        // ── Resize handles with per‑column header height ─────────────────────
+        let header_row1_h = 30.0;
+        let header_row2_h = 24.0;
+        let total_header_h = header_row1_h + header_row2_h;
+
+        let is_expanded = self.expanded_col_group;
+
         ctx.set_stroke_style(&JsValue::from_str("#64748b"));
-        ctx.set_line_width(3.0);
+        ctx.set_line_width(2.0);
+
+        // Helper: given a column name, return (start_y, end_y) relative to canvas top
+        let get_handle_ys = |col_name: &str| -> (f64, f64) {
+            if col_name == FIXED_COL {
+                // Competition column spans both header rows
+                (start_y + 6.0, start_y + total_header_h - 6.0)
+            } else {
+                // All other columns (including parent "season" when expanded) – second row only
+                (
+                    start_y + header_row1_h + 6.0,
+                    start_y + total_header_h - 6.0,
+                )
+            }
+            // if col_name == FIXED_COL {
+            //     // Competition column spans both header rows
+            //     (start_y + 6.0, start_y + total_header_h - 6.0)
+            // } else if is_expanded && col_name == GROUP_COL {
+            //     // Season group column – only top row (merged big cell)
+            //     (start_y + 6.0, start_y + header_row1_h - 6.0)
+            // } else {
+            //     // Child columns (or season when collapsed) – only second row
+            //     (
+            //         start_y + header_row1_h + 6.0,
+            //         start_y + total_header_h - 6.0,
+            //     )
+            // }
+        };
+
+        // Fixed column right border
+        let (top_y, bottom_y) = get_handle_ys(FIXED_COL);
         ctx.begin_path();
-        ctx.move_to(fixed_w, start_y + 6.0);
-        ctx.line_to(fixed_w, start_y + total_header_h - 6.0);  // ← stays inside header
+        ctx.move_to(fixed_w, top_y);
+        ctx.line_to(fixed_w, bottom_y);
         ctx.stroke();
 
-        // Scrollable col borders
+        // Scrollable columns
         for (col, sx, cw) in &col_screen_positions {
-            if col == FIXED_COL { continue; }
+            console::log_1(&format!("scroll col: {}", col).into());
+            if col == FIXED_COL {
+                continue;
+            }
+
             let border_x = sx + cw;
-            // only draw if visible and not the last col
             if border_x > fixed_w && border_x < viewport_w {
+                let (top_y, bottom_y) = get_handle_ys(col);
+                console::log_1(&format!("top_y col: {}", top_y).into());
+                console::log_1(&format!("bottom_y col: {}", bottom_y).into());
                 ctx.begin_path();
-                ctx.move_to(border_x, start_y + 6.0);
-                ctx.line_to(border_x, start_y + total_header_h - 6.0); // ← stays inside header
+                ctx.move_to(border_x, top_y);
+                ctx.line_to(border_x, bottom_y);
                 ctx.stroke();
             }
         }
@@ -602,14 +710,17 @@ impl PivotEngine {
     }
 
     pub fn get_visible_col_widths(&self) -> Vec<f64> {
-        self.visible_data_columns().iter().map(|col| {
-            console::log_1(&format!("visible_data_column = {}", col).into());
-            let i = self.columns.iter().position(|c| c == col).unwrap();
-            console::log_1(&format!("visible_data_column_index = {}", i).into());
-            let size = self.col_widths[i];
-            console::log_1(&format!("visible_data_column_size = {}", size).into());
-            size
-        }).collect()
+        self.visible_data_columns()
+            .iter()
+            .map(|col| {
+                // console::log_1(&format!("visible_data_column = {}", col).into());
+                let i = self.columns.iter().position(|c| c == col).unwrap();
+                // console::log_1(&format!("visible_data_column_index = {}", i).into());
+                let size = self.col_widths[i];
+                // console::log_1(&format!("visible_data_column_size = {}", size).into());
+                size
+            })
+            .collect()
     }
 
     pub fn set_visible_col_width(&mut self, visible_idx: usize, width: f64) {
@@ -625,17 +736,22 @@ impl PivotEngine {
     /// "competition" always visible, "season" always visible (it's the toggle)
     /// all others only visible when expanded
     fn visible_columns(&self) -> Vec<&String> {
-        self.columns.iter().filter(|col| {
-            let c = col.as_str();
-            c == "competition" || c == "season" || self.expanded_col_group
-        }).collect()
+        self.columns
+            .iter()
+            .filter(|col| {
+                let c = col.as_str();
+                c == "competition" || c == "season" || self.expanded_col_group
+            })
+            .collect()
     }
 
     /// Hit test for column group toggle button in header
     /// Returns true if px is within the "season" column toggle button
     pub fn hit_test_col_toggle(&self, px: f64, py: f64, _start_y: f64, _header_h: f64) -> bool {
         // Only in top header row
-        if py < 0.0 || py > 30.0 { return false; }
+        if py < 0.0 || py > 30.0 {
+            return false;
+        }
 
         let fixed_idx = self.columns.iter().position(|c| c == FIXED_COL).unwrap();
         let fixed_w = self.col_widths[fixed_idx];
@@ -645,13 +761,16 @@ impl PivotEngine {
         let btn_x = season_x + 4.0;
         px >= btn_x && px <= btn_x + 16.0
     }
- }
+}
 
 // Private helpers
 impl PivotEngine {
     /// Computes column names and their widths using the provided canvas context.
     /// No temporary canvas – the real rendering context is used for measurement.
-    fn compute_columns_and_widths(&mut self, ctx: &CanvasRenderingContext2d) -> Result<(), JsValue> {
+    fn compute_columns_and_widths(
+        &mut self,
+        ctx: &CanvasRenderingContext2d,
+    ) -> Result<(), JsValue> {
         // Collect all unique column names from all rows
         let mut col_set = HashSet::new();
         for row in &self.data {
@@ -692,7 +811,7 @@ impl PivotEngine {
         let height = canvas.height() as f64;
         set_canvas_fill_color(ctx, "#ffffff");
         ctx.fill_rect(0.0, 0.0, width, height);
-        set_canvas_fill_color(ctx,"#999999");
+        set_canvas_fill_color(ctx, "#999999");
         ctx.set_font("16px sans-serif");
         let msg = "No data to display";
         let text_width = ctx.measure_text(msg)?.width();
@@ -702,11 +821,12 @@ impl PivotEngine {
     }
 
     fn season_children(&self) -> Vec<&String> {
-        self.columns.iter().filter(|c| {
-            c.as_str() != FIXED_COL && c.as_str() != GROUP_COL
-        }).collect()
+        self.columns
+            .iter()
+            .filter(|c| c.as_str() != FIXED_COL && c.as_str() != GROUP_COL)
+            .collect()
     }
-    
+
     /// Flat ordered list of leaf columns actually rendered in data rows
     fn visible_data_columns(&self) -> Vec<String> {
         let mut result = vec![FIXED_COL.to_string(), GROUP_COL.to_string()];
@@ -722,11 +842,12 @@ impl PivotEngine {
 fn set_canvas_fill_color(context: &CanvasRenderingContext2d, color: &str) {
     // 1. Get a reference to the context as a raw JsValue
     let context_val: &JsValue = context;
-    
+
     // 2. Reflectively set the "fillStyle" property on the JS object
     js_sys::Reflect::set(
-        context_val, 
-        &JsValue::from_str("fillStyle"), 
-        &JsValue::from_str(color)
-    ).unwrap();
+        context_val,
+        &JsValue::from_str("fillStyle"),
+        &JsValue::from_str(color),
+    )
+    .unwrap();
 }
