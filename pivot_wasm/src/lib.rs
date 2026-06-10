@@ -732,19 +732,6 @@ impl PivotEngine {
         }
     }
 
-    /// Returns the currently visible columns based on group state
-    /// "competition" always visible, "season" always visible (it's the toggle)
-    /// all others only visible when expanded
-    fn visible_columns(&self) -> Vec<&String> {
-        self.columns
-            .iter()
-            .filter(|col| {
-                let c = col.as_str();
-                c == "competition" || c == "season" || self.expanded_col_group
-            })
-            .collect()
-    }
-
     /// Hit test for column group toggle button in header
     /// Returns true if px is within the "season" column toggle button
     pub fn hit_test_col_toggle(&self, px: f64, py: f64, _start_y: f64, _header_h: f64) -> bool {
