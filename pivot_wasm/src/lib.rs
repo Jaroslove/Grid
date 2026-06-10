@@ -748,6 +748,39 @@ impl PivotEngine {
         let btn_x = season_x + 4.0;
         px >= btn_x && px <= btn_x + 16.0
     }
+
+    pub fn swap_visible_columns(&mut self, from_visible_idx: usize, to_visible_idx: usize) {
+        let visible = self.visible_data_columns();
+        // Don't allow swapping with or swapping the fixed col
+        if from_visible_idx == 0 || to_visible_idx == 0 {
+            return;
+        }
+        if from_visible_idx == to_visible_idx {
+            return;
+        }
+        if from_visible_idx >= visible.len() || to_visible_idx >= visible.len() {
+            return;
+        }
+
+        let from_col = &visible[from_visible_idx].clone();
+        let to_col = &visible[to_visible_idx].clone();
+
+        // Find positions in self.columns and swap
+        if let (Some(fi), Some(ti)) = (
+            self.columns.iter().position(|c| c == from_col),
+            self.columns.iter().position(|c| c == to_col),
+        ) {
+            self.columns.swap(fi, ti);
+            self.col_widths.swap(fi, ti);
+        }
+    }
+
+    pub fn get_col_name_at_visible_idx(&self, visible_idx: usize) -> String {
+        self.visible_data_columns()
+            .get(visible_idx)
+            .cloned()
+            .unwrap_or_default()
+    }
 }
 
 // Private helpers

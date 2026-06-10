@@ -1,8 +1,6 @@
 import { Injectable, signal } from "@angular/core";
 import { WasmService } from "./wasm.service";
-import {
-  DataRow,
-} from "../models/pivot.models";
+import { DataRow } from "../models/pivot.models";
 
 @Injectable({ providedIn: "root" })
 export class PivotService {
@@ -51,19 +49,17 @@ export class PivotService {
     return this.engine.total_content_height();
   }
 
-  render(
-    ctx: CanvasRenderingContext2D
-  ): void {
+  render(ctx: CanvasRenderingContext2D): void {
     if (!this.engine) return;
-    this.engine.render(
-      ctx
-    );
+    this.engine.render(ctx);
   }
 
   hit_test_col_toggle(
-    px: number, py: number, 
-    start_y: number, 
-    header_h: number): boolean {
+    px: number,
+    py: number,
+    start_y: number,
+    header_h: number,
+  ): boolean {
     return this.engine.hit_test_col_toggle(px, py, start_y, header_h);
   }
 
@@ -71,12 +67,20 @@ export class PivotService {
     this.engine.toggle_col_group();
   }
 
-  hit_test_row(py: number,
-        scroll_y: number,
-        start_y: number,
-        header_h: number,
-        row_height: number,): number {
-    return this.engine.hit_test_row(py, scroll_y, start_y, header_h, row_height);
+  hit_test_row(
+    py: number,
+    scroll_y: number,
+    start_y: number,
+    header_h: number,
+    row_height: number,
+  ): number {
+    return this.engine.hit_test_row(
+      py,
+      scroll_y,
+      start_y,
+      header_h,
+      row_height,
+    );
   }
 
   toggle_row(rowIdx: number) {
@@ -99,15 +103,23 @@ export class PivotService {
     this.engine.set_visible_col_width(visibleIdx, width);
   }
 
-  set_scroll_x(v: number) { 
-    this.engine.set_scroll_x(v); 
+  set_scroll_x(v: number) {
+    this.engine.set_scroll_x(v);
   }
-  
-  get_scroll_x(): number  { 
-    return this.engine.get_scroll_x(); 
+
+  get_scroll_x(): number {
+    return this.engine.get_scroll_x();
   }
-  
-  hscrollbar_thumb_rect(): number[] { 
-    return Array.from(this.engine.hscrollbar_thumb_rect()); 
+
+  hscrollbar_thumb_rect(): number[] {
+    return Array.from(this.engine.hscrollbar_thumb_rect());
+  }
+
+  swap_visible_columns(from: number, to: number): void {
+    this.engine.swap_visible_columns(from, to);
+  }
+
+  get_col_name_at_visible_idx(idx: number): string {
+    return this.engine.get_col_name_at_visible_idx(idx);
   }
 }
