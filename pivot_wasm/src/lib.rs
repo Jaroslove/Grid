@@ -453,7 +453,8 @@ impl PivotEngine {
 
             // ── Child rows: пинned cell пустая (просто фон + border) ──────────
             if is_expanded {
-                for _ in &group.row_indices {
+                for &data_idx in &group.row_indices {
+                    let row = &self.data[data_idx];
                     let child_top = y_cursor;
                     let child_bottom = child_top + row_height;
                     let child_visible =
@@ -466,6 +467,15 @@ impl PivotEngine {
                         ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
                         ctx.set_line_width(1.0);
                         ctx.stroke_rect(0.0, screen_y, fixed_w, row_height);
+
+                        let season_text =
+                            row.fields.get(GROUP_COL).map(|s| s.as_str()).unwrap_or("");
+                        ctx.set_fill_style(&JsValue::from_str("#1e40af"));
+                        ctx.set_font("12px sans-serif");
+                        ctx.set_text_align("center");
+                        ctx.set_text_baseline("alphabetic");
+                        ctx.fill_text(season_text, fixed_w / 2.0, screen_y + 18.0)
+                            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
                     }
                     y_cursor += row_height;
 
