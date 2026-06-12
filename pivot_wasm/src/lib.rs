@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_wasm_bindgen::to_value;
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
@@ -37,6 +38,9 @@ impl PivotEngine {
     pub fn new(data: JsValue) -> Result<PivotEngine, JsValue> {
         let rows: Vec<DataRow> = serde_wasm_bindgen::from_value(data)
             .map_err(|e| JsValue::from_str(&format!("Invalid data: {}", e)))?;
+        console::log_1(&"new fn".into());
+        let js_value = to_value(&rows).unwrap();
+        console::log_1(&js_value);
         Ok(PivotEngine {
             data: rows,
             columns: Vec::new(),

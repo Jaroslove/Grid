@@ -1,0 +1,501 @@
+{
+  "competition": "UEFA Europa League",
+  "most_successful_club": "Sevilla (7 titles)",
+  "winners": [
+    {
+      "season": "2025-2026",
+      "winner": "Aston Villa",
+      "winner_country": "England",
+      "runner_up": "SC Freiburg",
+      "runner_up_country": "Germany",
+      "score": "3-0",
+      "venue": "Beşiktaş Stadium, Istanbul (Turkey)"
+    },
+    {
+      "season": "2024-2025",
+      "winner": "Tottenham Hotspur",
+      "winner_country": "England",
+      "runner_up": "Manchester United",
+      "runner_up_country": "England",
+      "score": "1-0",
+      "venue": "San Mamés, Bilbao (Spain)"
+    },
+    {
+      "season": "2023-2024",
+      "winner": "Atalanta",
+      "winner_country": "Italy",
+      "runner_up": "Bayer Leverkusen",
+      "runner_up_country": "Germany",
+      "score": "3-0",
+      "venue": "Aviva Stadium, Dublin (Ireland)"
+    },
+    {
+      "season": "2022-2023",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Roma",
+      "runner_up_country": "Italy",
+      "score": "1-1 (4-1 pens)",
+      "venue": "Puskás Aréna, Budapest (Hungary)"
+    },
+    {
+      "season": "2021-2022",
+      "winner": "Eintracht Frankfurt",
+      "winner_country": "Germany",
+      "runner_up": "Rangers",
+      "runner_up_country": "Scotland",
+      "score": "1-1 (5-4 pens)",
+      "venue": "Ramón Sánchez Pizjuán, Seville (Spain)"
+    },
+    {
+      "season": "2020-2021",
+      "winner": "Villarreal",
+      "winner_country": "Spain",
+      "runner_up": "Manchester United",
+      "runner_up_country": "England",
+      "score": "1-1 (11-10 pens)",
+      "venue": "Stadion Gdańsk, Gdańsk (Poland)"
+    },
+    {
+      "season": "2019-2020",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Inter Milan",
+      "runner_up_country": "Italy",
+      "score": "3-2",
+      "venue": "RheinEnergieStadion, Cologne (Germany)"
+    },
+    {
+      "season": "2018-2019",
+      "winner": "Chelsea",
+      "winner_country": "England",
+      "runner_up": "Arsenal",
+      "runner_up_country": "England",
+      "score": "4-1",
+      "venue": "Olympic Stadium, Baku (Azerbaijan)"
+    },
+    {
+      "season": "2017-2018",
+      "winner": "Atlético Madrid",
+      "winner_country": "Spain",
+      "runner_up": "Marseille",
+      "runner_up_country": "France",
+      "score": "3-0",
+      "venue": "Parc OL, Décines-Charpieu (France)"
+    },
+    {
+      "season": "2016-2017",
+      "winner": "Manchester United",
+      "winner_country": "England",
+      "runner_up": "Ajax",
+      "runner_up_country": "Netherlands",
+      "score": "2-0",
+      "venue": "Friends Arena, Solna (Sweden)"
+    },
+    {
+      "season": "2015-2016",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Liverpool",
+      "runner_up_country": "England",
+      "score": "3-1",
+      "venue": "St. Jakob-Park, Basel (Switzerland)"
+    },
+    {
+      "season": "2014-2015",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Dnipro Dnipropetrovsk",
+      "runner_up_country": "Ukraine",
+      "score": "3-2",
+      "venue": "National Stadium, Warsaw (Poland)"
+    },
+    {
+      "season": "2013-2014",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Benfica",
+      "runner_up_country": "Portugal",
+      "score": "0-0 (4-2 pens)",
+      "venue": "Juventus Stadium, Turin (Italy)"
+    },
+    {
+      "season": "2012-2013",
+      "winner": "Chelsea",
+      "winner_country": "England",
+      "runner_up": "Benfica",
+      "runner_up_country": "Portugal",
+      "score": "2-1",
+      "venue": "Amsterdam Arena, Amsterdam (Netherlands)"
+    },
+    {
+      "season": "2011-2012",
+      "winner": "Atlético Madrid",
+      "winner_country": "Spain",
+      "runner_up": "Athletic Bilbao",
+      "runner_up_country": "Spain",
+      "score": "3-0",
+      "venue": "National Arena, Bucharest (Romania)"
+    },
+    {
+      "season": "2010-2011",
+      "winner": "Porto",
+      "winner_country": "Portugal",
+      "runner_up": "Braga",
+      "runner_up_country": "Portugal",
+      "score": "1-0",
+      "venue": "Aviva Stadium, Dublin (Ireland)"
+    },
+    {
+      "season": "2009-2010",
+      "winner": "Atlético Madrid",
+      "winner_country": "Spain",
+      "runner_up": "Fulham",
+      "runner_up_country": "England",
+      "score": "2-1 (aet)",
+      "venue": "HSH Nordbank Arena, Hamburg (Germany)"
+    },
+    {
+      "season": "2008-2009",
+      "winner": "Shakhtar Donetsk",
+      "winner_country": "Ukraine",
+      "runner_up": "Werder Bremen",
+      "runner_up_country": "Germany",
+      "score": "2-1 (aet)",
+      "venue": "Şükrü Saracoğlu Stadium, Istanbul (Turkey)"
+    },
+    {
+      "season": "2007-2008",
+      "winner": "Zenit Saint Petersburg",
+      "winner_country": "Russia",
+      "runner_up": "Rangers",
+      "runner_up_country": "Scotland",
+      "score": "2-0",
+      "venue": "City of Manchester Stadium, Manchester (England)"
+    },
+    {
+      "season": "2006-2007",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Espanyol",
+      "runner_up_country": "Spain",
+      "score": "2-2 (3-1 pens)",
+      "venue": "Hampden Park, Glasgow (Scotland)"
+    },
+    {
+      "season": "2005-2006",
+      "winner": "Sevilla",
+      "winner_country": "Spain",
+      "runner_up": "Middlesbrough",
+      "runner_up_country": "England",
+      "score": "4-0",
+      "venue": "PSV Stadion, Eindhoven (Netherlands)"
+    },
+    {
+      "season": "2004-2005",
+      "winner": "CSKA Moscow",
+      "winner_country": "Russia",
+      "runner_up": "Sporting CP",
+      "runner_up_country": "Portugal",
+      "score": "3-1",
+      "venue": "Estádio José Alvalade, Lisbon (Portugal)"
+    },
+    {
+      "season": "2003-2004",
+      "winner": "Valencia",
+      "winner_country": "Spain",
+      "runner_up": "Marseille",
+      "runner_up_country": "France",
+      "score": "2-0",
+      "venue": "Ullevi, Gothenburg (Sweden)"
+    },
+    {
+      "season": "2002-2003",
+      "winner": "Porto",
+      "winner_country": "Portugal",
+      "runner_up": "Celtic",
+      "runner_up_country": "Scotland",
+      "score": "3-2 (aet)",
+      "venue": "Estadio Olímpico de Sevilla, Seville (Spain)"
+    },
+    {
+      "season": "2001-2002",
+      "winner": "Feyenoord",
+      "winner_country": "Netherlands",
+      "runner_up": "Borussia Dortmund",
+      "runner_up_country": "Germany",
+      "score": "3-2",
+      "venue": "De Kuip, Rotterdam (Netherlands)"
+    },
+    {
+      "season": "2000-2001",
+      "winner": "Liverpool",
+      "winner_country": "England",
+      "runner_up": "Alavés",
+      "runner_up_country": "Spain",
+      "score": "5-4 (asdet)",
+      "venue": "Westfalenstadion, Dortmund (Germany)"
+    },
+    {
+      "season": "1999-2000",
+      "winner": "Galatasaray",
+      "winner_country": "Turkey",
+      "runner_up": "Arsenal",
+      "runner_up_country": "England",
+      "score": "0-0 (4-1 pens)",
+      "venue": "Parken Stadium, Copenhagen (Denmark)"
+    },
+    {
+      "season": "1998-1999",
+      "winner": "Parma",
+      "winner_country": "Italy",
+      "runner_up": "Marseille",
+      "runner_up_country": "France",
+      "score": "3-0",
+      "venue": "Luzhniki Stadium, Moscow (Russia)"
+    },
+    {
+      "season": "1997-1998",
+      "winner": "Inter Milan",
+      "winner_country": "Italy",
+      "runner_up": "Lazio",
+      "runner_up_country": "Italy",
+      "score": "3-0",
+      "venue": "Parc des Princes, Paris (France)"
+    },
+    {
+      "season": "1996-1997",
+      "winner": "Schalke 04",
+      "winner_country": "Germany",
+      "runner_up": "Inter Milan",
+      "runner_up_country": "Italy",
+      "score": "1-1 (4-1 pens) [Two-legged]",
+      "venue": "Parkstadion (Gelsenkirchen) & San Siro (Milan)"
+    },
+    {
+      "season": "1995-1996",
+      "winner": "Bayern Munich",
+      "winner_country": "Germany",
+      "runner_up": "Bordeaux",
+      "runner_up_country": "France",
+      "score": "5-1 (agg.) [Two-legged]",
+      "venue": "Olympiastadion (Munich) & Parc Lescure (Bordeaux)"
+    },
+    {
+      "season": "1994-1995",
+      "winner": "Parma",
+      "winner_country": "Italy",
+      "runner_up": "Juventus",
+      "runner_up_country": "Italy",
+      "score": "2-1 (agg.) [Two-legged]",
+      "venue": "Stadio Ennio Tardini (Parma) & San Siro (Milan)"
+    },
+    {
+      "season": "1993-1994",
+      "winner": "Inter Milan",
+      "winner_country": "Italy",
+      "runner_up": "Austria Salzburg",
+      "runner_up_country": "Austria",
+      "score": "2-0 (agg.) [Two-legged]",
+      "venue": "Ernst-Happel-Stadion (Vienna) & San Siro (Milan)"
+    },
+    {
+      "season": "1992-1993",
+      "winner": "Juventus",
+      "winner_country": "Italy",
+      "runner_up": "Borussia Dortmund",
+      "runner_up_country": "Germany",
+      "score": "6-1 (agg.) [Two-legged]",
+      "venue": "Westfalenstadion (Dortmund) & Stadio delle Alpi (Turin)"
+    },
+    {
+      "season": "1991-1992",
+      "winner": "Ajax",
+      "winner_country": "Netherlands",
+      "runner_up": "Torino",
+      "runner_up_country": "Italy",
+      "score": "2-2 (agg. w)",
+      "venue": "Stadio delle Alpi (Turin) & Olympic Stadium (Amsterdam)"
+    },
+    {
+      "season": "1990-1991",
+      "winner": "Inter Milan",
+      "winner_country": "Italy",
+      "runner_up": "Roma",
+      "runner_up_country": "Italy",
+      "score": "2-1 (agg.) [Two-legged]",
+      "venue": "San Siro (Milan) & Stadio Olimpico (Rome)"
+    },
+    {
+      "season": "1989-1990",
+      "winner": "Juventus",
+      "winner_country": "Italy",
+      "runner_up": "Fiorentina",
+      "runner_up_country": "Italy",
+      "score": "3-1 (agg.) [Two-legged]",
+      "venue": "Stadio Comunale (Turin) & Stadio Partenio (Avellino)"
+    },
+    {
+      "season": "1988-1989",
+      "winner": "Napoli",
+      "winner_country": "Italy",
+      "runner_up": "VfB Stuttgart",
+      "runner_up_country": "Germany",
+      "score": "5-4 (agg.) [Two-legged]",
+      "venue": "Stadio San Paolo (Naples) & Neckarstadion (Stuttgart)"
+    },
+    {
+      "season": "1987-1988",
+      "winner": "Bayer Leverkusen",
+      "winner_country": "Germany",
+      "runner_up": "Espanyol",
+      "runner_up_country": "Spain",
+      "score": "3-3 (3-2 pens) [Two-legged]",
+      "venue": "Estadi de Sarrià (Barcelona) & Ulrich-Haberland-Stadion"
+    },
+    {
+      "season": "1986-1987",
+      "winner": "IFK Göteborg",
+      "winner_country": "Sweden",
+      "runner_up": "Dundee United",
+      "runner_up_country": "Scotland",
+      "score": "2-1 (agg.) [Two-legged]",
+      "venue": "Nya Ullevi (Gothenburg) & Tannadice Park (Dundee)"
+    },
+    {
+      "season": "1985-1986",
+      "winner": "Real Madrid",
+      "winner_country": "Spain",
+      "runner_up": "1. FC Köln",
+      "runner_up_country": "Germany",
+      "score": "5-3 (agg.) [Two-legged]",
+      "venue": "Santiago Bernabéu (Madrid) & Olympiastadion (Berlin)"
+    },
+    {
+      "season": "1984-1985",
+      "winner": "Real Madrid",
+      "winner_country": "Spain",
+      "runner_up": "Videoton",
+      "runner_up_country": "Hungary",
+      "score": "3-1 (agg.) [Two-legged]",
+      "venue": "Sóstói Stadion (Székesfehérvár) & Santiago Bernabéu"
+    },
+    {
+      "season": "1983-1984",
+      "winner": "Tottenham Hotspur",
+      "winner_country": "England",
+      "runner_up": "Anderlecht",
+      "runner_up_country": "Belgium",
+      "score": "2-2 (4-3 pens) [Two-legged]",
+      "venue": "Constant Vanden Stock (Brussels) & White Hart Lane"
+    },
+    {
+      "season": "1982-1983",
+      "winner": "Anderlecht",
+      "winner_country": "Belgium",
+      "runner_up": "Benfica",
+      "runner_up_country": "Portugal",
+      "score": "2-1 (agg.) [Two-legged]",
+      "venue": "Heysel Stadium (Brussels) & Estádio da Luz (Lisbon)"
+    },
+    {
+      "season": "1981-1982",
+      "winner": "IFK Göteborg",
+      "winner_country": "Sweden",
+      "runner_up": "Hamburger SV",
+      "runner_up_country": "Germany",
+      "score": "4-0 (agg.) [Two-legged]",
+      "venue": "Nya Ullevi (Gothenburg) & Volksparkstadion (Hamburg)"
+    },
+    {
+      "season": "1980-1981",
+      "winner": "Ipswich Town",
+      "winner_country": "England",
+      "runner_up": "AZ Alkmaar",
+      "runner_up_country": "Netherlands",
+      "score": "5-4 (agg.) [Two-legged]",
+      "venue": "Portman Road (Ipswich) & Olympisch Stadion (Amsterdam)"
+    },
+    {
+      "season": "1979-1980",
+      "winner": "Eintracht Frankfurt",
+      "winner_country": "Germany",
+      "runner_up": "Borussia Mönchengladbach",
+      "runner_up_country": "Germany",
+      "score": "3-3 (agg. w)",
+      "venue": "Bökelbergstadion & Waldstadion (Frankfurt)"
+    },
+    {
+      "season": "1978-1979",
+      "winner": "Borussia Mönchengladbach",
+      "winner_country": "Germany",
+      "runner_up": "Red Star Belgrade",
+      "runner_up_country": "Yugoslavia",
+      "score": "2-1 (agg.) [Two-legged]",
+      "venue": "Crvena Zvezda Stadium (Belgrade) & Rheinstadion"
+    },
+    {
+      "season": "1977-1978",
+      "winner": "PSV Eindhoven",
+      "winner_country": "Netherlands",
+      "runner_up": "Bastia",
+      "runner_up_country": "France",
+      "score": "3-0 (agg.) [Two-legged]",
+      "venue": "Stade Armand Cesari (Bastia) & Philips Stadion"
+    },
+    {
+      "season": "1976-1977",
+      "winner": "Juventus",
+      "winner_country": "Italy",
+      "runner_up": "Athletic Bilbao",
+      "runner_up_country": "Spain",
+      "score": "2-2 (agg. w)",
+      "venue": "Stadio Comunale (Turin) & San Mamés (Bilbao)"
+    },
+    {
+      "season": "1975-1976",
+      "winner": "Liverpool",
+      "winner_country": "England",
+      "runner_up": "Club Brugge",
+      "runner_up_country": "Belgium",
+      "score": "4-3 (agg.) [Two-legged]",
+      "venue": "Anfield (Liverpool) & Olympiastadion (Bruges)"
+    },
+    {
+      "season": "1974-1975",
+      "winner": "Borussia Mönchengladbach",
+      "winner_country": "Germany",
+      "runner_up": "Twente",
+      "runner_up_country": "Netherlands",
+      "score": "5-1 (agg.) [Two-legged]",
+      "venue": "Bökelbergstadion (Mönchengladbach) & Diekman Stadion"
+    },
+    {
+      "season": "1973-1974",
+      "winner": "Feyenoord",
+      "winner_country": "Netherlands",
+      "runner_up": "Tottenham Hotspur",
+      "runner_up_country": "England",
+      "score": "4-2 (agg.) [Two-legged]",
+      "venue": "White Hart Lane (London) & De Kuip (Rotterdam)"
+    },
+    {
+      "season": "1972-1973",
+      "winner": "Liverpool",
+      "winner_country": "England",
+      "runner_up": "Borussia Mönchengladbach",
+      "runner_up_country": "Germany",
+      "score": "3-2 (agg.) [Two-legged]",
+      "venue": "Anfield (Liverpool) & Bökelbergstadion"
+    },
+    {
+      "season": "1971-1972",
+      "winner": "Tottenham Hotspur",
+      "winner_country": "England",
+      "runner_up": "Wolverhampton Wanderers",
+      "runner_up_country": "England",
+      "score": "3-2 (agg.) [Two-legged]",
+      "venue": "Molineux (Wolverhampton) & White Hart Lane (London)"
+    }
+  ]
+}

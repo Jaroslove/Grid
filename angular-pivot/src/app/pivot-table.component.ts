@@ -70,9 +70,14 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     const parsedData = await this.http
       .get<any>("/assets/winners.json")
       .toPromise();
+    const parsedDataUefa = await this.http
+      .get<any>("/assets/winners_uefa.json")
+      .toPromise();
     const dataRows = populateDataRows(parsedData);
-    const increased = Array.from({ length: 10 }, () => dataRows).flat();
-    this.pivotSvc.setData(increased);
+    const dataRowsUefa = populateDataRows(parsedDataUefa);
+    // const increased = Array.from({ length: 10 }, () => dataRows).flat();
+    const combined = [...dataRows, ...dataRowsUefa];
+    this.pivotSvc.setData(combined);
     await this.pivotSvc.initEngine();
     this.init();
     if (!this.ctx) return;
