@@ -5,6 +5,8 @@ use web_sys::CanvasRenderingContext2d;
 
 const FIXED_COL: &str = "competition";
 const GROUP_COL: &str = "season";
+const WINNER_COL: &str = "winner";
+const RUNNER_UP_COL: &str = "runner_up";
 
 // ─── Data Structures ────────────────────────────────────────────────────────
 
@@ -13,12 +15,19 @@ pub struct DataRow {
     pub fields: HashMap<String, String>,
 }
 
-/// Группа строк по значению "competition".
-/// row_indices — индексы в self.data, отсортированные по "season" (возрастание).
 #[derive(Clone, Debug)]
 struct Group {
     competition: String,
     row_indices: Vec<usize>,
+}
+
+/// Describes a column group (winner or runner_up)
+#[derive(Clone, Debug)]
+struct ColGroup {
+    key: String,   // "winner" or "runner_up"
+    label: String, // display label
+    expanded: bool,
+    members: Vec<String>, // unique team names (sorted)
 }
 
 // ─── Core Engine ────────────────────────────────────────────────────────────
@@ -26,17 +35,33 @@ struct Group {
 #[wasm_bindgen]
 pub struct PivotEngine {
     data: Vec<DataRow>,
+    /// All raw columns found in data (for width storage)
     columns: Vec<String>,
     col_widths: Vec<f64>,
     groups: Vec<Group>,
-    expanded_rows: HashSet<usize>, // индексы ГРУПП (не строк данных)
-    expanded_col_group: bool,
+    expanded_rows: HashSet<usize>,
+    col_groups: Vec<ColGroup>,
     scroll_y: f64,
     scroll_x: f64,
     viewport_height: f64,
     viewport_width: f64,
     canvas_width: f64,
     canvas_height: f64,
+}
+
+// ─── Visible column descriptor ───────────────────────────────────────────────
+
+/// A single visible column slot.
+#[derive(Clone, Debug)]
+struct VisCol {
+    /// logical key used to look up cell value in DataRow.fields
+    key: String,
+    /// display label (may differ from key for member cols)
+    label: String,
+    /// index into self.col_widths
+    width_idx: usize,
+    /// which col_group index this belongs to (None = fixed/season)
+    col_group_idx: Option<usize>,
 }
 
 #[wasm_bindgen]
@@ -52,7 +77,7 @@ impl PivotEngine {
             col_widths: Vec::new(),
             groups: Vec::new(),
             expanded_rows: HashSet::new(),
-            expanded_col_group: false,
+            col_groups: Vec::new(),
             scroll_y: 0.0,
             scroll_x: 0.0,
             viewport_height: 0.0,
@@ -67,12 +92,10 @@ impl PivotEngine {
     pub fn set_viewport(&mut self, width: f64, height: f64) {
         self.canvas_width = width;
         self.canvas_height = height;
-        self.viewport_height = height - 54.0 - 10.0; // headers + hscroll bar
-        self.viewport_width = width - 10.0; // minus vscroll bar
+        self.viewport_height = height - 54.0 - 10.0;
+        self.viewport_width = width - 10.0;
     }
 
-    /// Полная высота контента = Σ row_height для group rows
-    /// + Σ row_height * len(row_indices) для развёрнутых групп
     pub fn total_content_height(&self) -> f64 {
         let row_height = 25.0;
         let mut total = self.groups.len() as f64 * row_height;
@@ -86,12 +109,9 @@ impl PivotEngine {
 
     pub fn set_scroll_x(&mut self, scroll_x: f64) {
         let total_w: f64 = self
-            .visible_data_columns()
+            .visible_cols()
             .iter()
-            .map(|col| {
-                let i = self.columns.iter().position(|c| c == col).unwrap();
-                self.col_widths[i]
-            })
+            .map(|vc| self.col_widths[vc.width_idx])
             .sum();
         let max_scroll = (total_w - self.viewport_width).max(0.0);
         self.scroll_x = scroll_x.max(0.0).min(max_scroll);
@@ -103,12 +123,9 @@ impl PivotEngine {
 
     pub fn hscrollbar_thumb_rect(&self) -> Vec<f64> {
         let total_w: f64 = self
-            .visible_data_columns()
+            .visible_cols()
             .iter()
-            .map(|col| {
-                let i = self.columns.iter().position(|c| c == col).unwrap();
-                self.col_widths[i]
-            })
+            .map(|vc| self.col_widths[vc.width_idx])
             .sum();
         let track_w = self.viewport_width;
         if total_w <= track_w {
@@ -139,21 +156,6 @@ impl PivotEngine {
         self.scroll_y
     }
 
-    pub fn set_col_width(&mut self, col_idx: usize, width: f64) {
-        if col_idx < self.col_widths.len() {
-            self.col_widths[col_idx] = width.max(30.0);
-        }
-    }
-
-    pub fn get_col_widths(&self) -> Vec<f64> {
-        self.col_widths.clone()
-    }
-
-    pub fn col_count(&self) -> usize {
-        self.col_widths.len()
-    }
-
-    /// row_idx здесь — индекс ГРУППЫ (competition), не строки данных
     pub fn toggle_row(&mut self, row_idx: usize) {
         if self.expanded_rows.contains(&row_idx) {
             self.expanded_rows.remove(&row_idx);
@@ -162,9 +164,6 @@ impl PivotEngine {
         }
     }
 
-    /// Возвращает индекс ГРУППЫ под курсором (для toggle), либо -1.
-    /// Если клик попал на child-строку (внутри развёрнутой группы) — тоже -1,
-    /// т.к. у child-строк нет своей toggle-кнопки.
     pub fn hit_test_row(
         &self,
         py: f64,
@@ -177,20 +176,16 @@ impl PivotEngine {
         if relative_y < 0.0 {
             return -1;
         }
-
         let mut y = 0.0;
         for (gi, group) in self.groups.iter().enumerate() {
-            // group row
             if relative_y >= y && relative_y < y + row_height {
                 return gi as i32;
             }
             y += row_height;
-
-            // child rows (если развёрнуто) — не toggle-able
             if self.expanded_rows.contains(&gi) {
                 let children_h = group.row_indices.len() as f64 * row_height;
                 if relative_y >= y && relative_y < y + children_h {
-                    return -1; // клик внутри child-строк
+                    return -1;
                 }
                 y += children_h;
             }
@@ -204,8 +199,134 @@ impl PivotEngine {
         self.columns.clear();
         self.col_widths.clear();
         self.expanded_rows.clear();
+        self.col_groups.clear();
         self.rebuild_groups();
         Ok(())
+    }
+
+    /// Toggle a column group by index (0 = winner, 1 = runner_up)
+    pub fn toggle_col_group(&mut self, group_idx: usize) {
+        if let Some(cg) = self.col_groups.get_mut(group_idx) {
+            cg.expanded = !cg.expanded;
+        }
+    }
+
+    pub fn is_col_group_expanded(&self, group_idx: usize) -> bool {
+        self.col_groups
+            .get(group_idx)
+            .map(|cg| cg.expanded)
+            .unwrap_or(false)
+    }
+
+    pub fn col_group_count(&self) -> usize {
+        self.col_groups.len()
+    }
+
+    pub fn set_col_width(&mut self, col_idx: usize, width: f64) {
+        if col_idx < self.col_widths.len() {
+            self.col_widths[col_idx] = width.max(30.0);
+        }
+    }
+
+    pub fn get_col_widths(&self) -> Vec<f64> {
+        self.col_widths.clone()
+    }
+
+    pub fn get_visible_col_widths(&self) -> Vec<f64> {
+        self.visible_cols()
+            .iter()
+            .map(|vc| self.col_widths[vc.width_idx])
+            .collect()
+    }
+
+    pub fn set_visible_col_width(&mut self, visible_idx: usize, width: f64) {
+        let vcs = self.visible_cols();
+        if let Some(vc) = vcs.get(visible_idx) {
+            self.col_widths[vc.width_idx] = width.max(30.0);
+        }
+    }
+
+    pub fn swap_visible_columns(&mut self, from_visible_idx: usize, to_visible_idx: usize) {
+        if from_visible_idx == to_visible_idx {
+            return;
+        }
+        // 0 = competition (pinned, not swappable), 1 = season
+        if from_visible_idx == 0 || to_visible_idx == 0 {
+            return;
+        }
+
+        let vcs = self.visible_cols();
+        if from_visible_idx >= vcs.len() || to_visible_idx >= vcs.len() {
+            return;
+        }
+
+        let from_wi = vcs[from_visible_idx].width_idx;
+        let to_wi = vcs[to_visible_idx].width_idx;
+
+        // Only swap within the same col_group (member columns)
+        // or swap whole col-group headers — for simplicity we swap widths only
+        // and re-order col_groups or member lists accordingly.
+        let from_cg = vcs[from_visible_idx].col_group_idx;
+        let to_cg = vcs[to_visible_idx].col_group_idx;
+
+        if from_cg == to_cg {
+            if let Some(cgi) = from_cg {
+                // swap members within same group
+                let members = &mut self.col_groups[cgi].members;
+                // find positions
+                let fk = vcs[from_visible_idx].key.clone();
+                let tk = vcs[to_visible_idx].key.clone();
+                if let (Some(fi), Some(ti)) = (
+                    members.iter().position(|m| m == &fk),
+                    members.iter().position(|m| m == &tk),
+                ) {
+                    members.swap(fi, ti);
+                }
+            }
+            self.col_widths.swap(from_wi, to_wi);
+        } else {
+            // swap whole col groups
+            if let (Some(fgi), Some(tgi)) = (from_cg, to_cg) {
+                self.col_groups.swap(fgi, tgi);
+            }
+            self.col_widths.swap(from_wi, to_wi);
+        }
+    }
+
+    pub fn get_col_name_at_visible_idx(&self, visible_idx: usize) -> String {
+        self.visible_cols()
+            .get(visible_idx)
+            .map(|vc| vc.label.clone())
+            .unwrap_or_default()
+    }
+
+    /// hit-test for col-group toggle button in header row 1.
+    /// Returns col_group index or -1.
+    pub fn hit_test_col_group_toggle(&self, px: f64, py: f64) -> i32 {
+        if py < 0.0 || py > 30.0 {
+            return -1;
+        }
+        let fixed_w = self.fixed_col_width();
+        let mut x = fixed_w - self.scroll_x;
+
+        // season col — not a group, skip
+        let season_wi = self.width_idx_for(GROUP_COL);
+        let season_w = self.col_widths[season_wi];
+        x += season_w;
+
+        for (cgi, cg) in self.col_groups.iter().enumerate() {
+            let header_w = self.col_group_header_width(cgi);
+            let btn_x = x + 4.0;
+            let btn_end = btn_x + 16.0;
+            // only test if in visible area
+            if btn_x < self.viewport_width && btn_end > fixed_w {
+                if px >= btn_x && px <= btn_end {
+                    return cgi as i32;
+                }
+            }
+            x += header_w;
+        }
+        -1
     }
 
     pub fn render(&mut self, ctx: &CanvasRenderingContext2d) -> Result<(), JsValue> {
@@ -231,67 +352,26 @@ impl PivotEngine {
         let viewport_h = self.viewport_height;
         let viewport_w = self.viewport_width;
 
-        let data_cols = self.visible_data_columns();
-        let children = self
-            .season_children()
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
+        let fixed_w = self.fixed_col_width();
 
-        let fixed_idx = self.columns.iter().position(|c| c == FIXED_COL).unwrap();
-        let group_idx = self.columns.iter().position(|c| c == GROUP_COL).unwrap();
-        let fixed_w = self.col_widths[fixed_idx];
-        let group_w = self.col_widths[group_idx];
-
-        let children_total_w: f64 = if self.expanded_col_group {
-            children
-                .iter()
-                .map(|c| {
-                    let i = self.columns.iter().position(|x| x == c).unwrap();
-                    self.col_widths[i]
-                })
-                .sum()
-        } else {
-            0.0
-        };
-        let season_span_w = group_w + children_total_w;
-
-        // ── Clear ────────────────────────────────────────────────────────────
+        // ── Clear ────────────────────────────────────────────────────────
         ctx.set_fill_style(&JsValue::from_str("#ffffff"));
         ctx.fill_rect(0.0, 0.0, width, height);
 
-        // col_screen_positions: (col_name, screen_x, col_width) для всех видимых колонок
-        let col_screen_positions: Vec<(String, f64, f64)> = {
-            let mut result = Vec::new();
-            result.push((FIXED_COL.to_string(), 0.0, fixed_w));
-            let mut x = fixed_w - self.scroll_x;
-            for col in &data_cols {
-                if col == FIXED_COL {
-                    continue;
-                }
-                let ci = self.columns.iter().position(|c| c == col).unwrap();
-                let cw = self.col_widths[ci];
-                result.push((col.clone(), x, cw));
-                x += cw;
-            }
-            result
-        };
+        // Build screen positions for all visible cols
+        let col_positions = self.build_col_screen_positions(fixed_w);
 
-        // ════════════════════════════════════════════════════════════════════
-        // PASS 1 — scrollable data cells (clipped right of fixed col)
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════
+        // PASS 1 — scrollable data cells
+        // ════════════════════════════════════════════════════════════════
         ctx.save();
         ctx.begin_path();
         ctx.rect(fixed_w, viewport_y, viewport_w - fixed_w, viewport_h);
         ctx.clip();
 
-        // Итерация по "видимым логическим строкам": group row, затем (если
-        // развёрнута) child rows. y_cursor — виртуальная позиция от начала контента.
         let mut y_cursor = 0.0;
         for (gi, group) in self.groups.iter().enumerate() {
             let is_expanded = self.expanded_rows.contains(&gi);
-
-            // ── Group row ──────────────────────────────────────────────────
             let row_top = y_cursor;
             let row_bottom = row_top + row_height;
             let group_visible =
@@ -300,15 +380,11 @@ impl PivotEngine {
             if group_visible {
                 let screen_y = viewport_y + (row_top - self.scroll_y);
                 let fill_color = if gi % 2 == 0 { "#ffffff" } else { "#fafafa" };
-
                 ctx.set_fill_style(&JsValue::from_str(fill_color));
                 ctx.fill_rect(fixed_w, screen_y, viewport_w - fixed_w, row_height);
 
-                // Пустые ячейки для season/children — просто рисуем границы,
-                // без текста (по требованию: свёрнута группа => пустые ячейки;
-                // но и для group row в принципе данных нет — это агрегат)
-                for (col, sx, cw) in &col_screen_positions {
-                    if col == FIXED_COL {
+                for (vc, sx, cw) in &col_positions {
+                    if vc.key == FIXED_COL {
                         continue;
                     }
                     if sx + cw <= fixed_w || *sx >= viewport_w {
@@ -317,12 +393,10 @@ impl PivotEngine {
                     ctx.set_stroke_style(&JsValue::from_str("#cccccc"));
                     ctx.set_line_width(1.0);
                     ctx.stroke_rect(*sx, screen_y, *cw, row_height);
-                    // пустая ячейка — текста нет
                 }
             }
             y_cursor += row_height;
 
-            // ── Child rows (только если развёрнуто) ──────────────────────────
             if is_expanded {
                 for &data_idx in &group.row_indices {
                     let row = &self.data[data_idx];
@@ -333,12 +407,11 @@ impl PivotEngine {
 
                     if child_visible {
                         let screen_y = viewport_y + (child_top - self.scroll_y);
-
                         ctx.set_fill_style(&JsValue::from_str("#eff6ff"));
                         ctx.fill_rect(fixed_w, screen_y, viewport_w - fixed_w, row_height);
 
-                        for (col, sx, cw) in &col_screen_positions {
-                            if col == FIXED_COL {
+                        for (vc, sx, cw) in &col_positions {
+                            if vc.key == FIXED_COL {
                                 continue;
                             }
                             if sx + cw <= fixed_w || *sx >= viewport_w {
@@ -349,34 +422,32 @@ impl PivotEngine {
                             ctx.set_line_width(1.0);
                             ctx.stroke_rect(*sx, screen_y, *cw, row_height);
 
-                            let cell_text = row.fields.get(col).map(|s| s.as_str()).unwrap_or("");
-                            ctx.set_fill_style(&JsValue::from_str("#1e40af"));
-                            ctx.set_font("12px sans-serif");
-                            ctx.set_text_align("center");
-                            ctx.set_text_baseline("alphabetic");
-                            ctx.fill_text(cell_text, sx + cw / 2.0, screen_y + 18.0)
-                                .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+                            let cell_text = self.get_cell_value(row, vc);
+                            if !cell_text.is_empty() {
+                                ctx.set_fill_style(&JsValue::from_str("#1e40af"));
+                                ctx.set_font("12px sans-serif");
+                                ctx.set_text_align("center");
+                                ctx.set_text_baseline("alphabetic");
+                                ctx.fill_text(&cell_text, sx + cw / 2.0, screen_y + 18.0)
+                                    .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+                            }
                         }
                     }
                     y_cursor += row_height;
-
-                    // ранний выход — всё, что дальше, точно ниже viewport
                     if y_cursor - row_height > self.scroll_y + viewport_h {
                         break;
                     }
                 }
             }
-
-            // ранний выход из внешнего цикла групп
             if y_cursor > self.scroll_y + viewport_h {
                 break;
             }
         }
         ctx.restore();
 
-        // ════════════════════════════════════════════════════════════════════
-        // PASS 2 — pinned competition column (drawn on top of pass 1)
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════
+        // PASS 2 — pinned competition column
+        // ════════════════════════════════════════════════════════════════
         ctx.save();
         ctx.begin_path();
         ctx.rect(0.0, viewport_y, fixed_w, viewport_h);
@@ -385,8 +456,6 @@ impl PivotEngine {
         let mut y_cursor = 0.0;
         for (gi, group) in self.groups.iter().enumerate() {
             let is_expanded = self.expanded_rows.contains(&gi);
-
-            // ── Group row: ▶/▼ + название competition ─────────────────────────
             let row_top = y_cursor;
             let row_bottom = row_top + row_height;
             let group_visible =
@@ -395,18 +464,15 @@ impl PivotEngine {
             if group_visible {
                 let screen_y = viewport_y + (row_top - self.scroll_y);
                 let fill_color = if gi % 2 == 0 { "#ffffff" } else { "#fafafa" };
-
                 ctx.set_fill_style(&JsValue::from_str(fill_color));
                 ctx.fill_rect(0.0, screen_y, fixed_w, row_height);
                 ctx.set_stroke_style(&JsValue::from_str("#cccccc"));
                 ctx.set_line_width(1.0);
                 ctx.stroke_rect(0.0, screen_y, fixed_w, row_height);
 
-                // Toggle button
                 let btn_size = 16.0;
                 let btn_x = 4.0;
                 let btn_y = screen_y + (row_height - btn_size) / 2.0;
-
                 ctx.set_fill_style(&JsValue::from_str(if is_expanded {
                     "#dbeafe"
                 } else {
@@ -422,7 +488,6 @@ impl PivotEngine {
                 }));
                 ctx.set_line_width(1.0);
                 ctx.stroke();
-
                 ctx.set_fill_style(&JsValue::from_str(if is_expanded {
                     "#1d4ed8"
                 } else {
@@ -435,7 +500,6 @@ impl PivotEngine {
                 ctx.fill_text(arrow, btn_x + btn_size / 2.0, btn_y + btn_size / 2.0)
                     .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
-                // Название competition
                 ctx.set_fill_style(&JsValue::from_str("#000000"));
                 ctx.set_font("bold 12px sans-serif");
                 let btn_end = btn_x + btn_size + 4.0;
@@ -451,7 +515,6 @@ impl PivotEngine {
             }
             y_cursor += row_height;
 
-            // ── Child rows: пинned cell пустая (просто фон + border) ──────────
             if is_expanded {
                 for &data_idx in &group.row_indices {
                     let row = &self.data[data_idx];
@@ -467,7 +530,6 @@ impl PivotEngine {
                         ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
                         ctx.set_line_width(1.0);
                         ctx.stroke_rect(0.0, screen_y, fixed_w, row_height);
-
                         let season_text =
                             row.fields.get(GROUP_COL).map(|s| s.as_str()).unwrap_or("");
                         ctx.set_fill_style(&JsValue::from_str("#1e40af"));
@@ -478,19 +540,16 @@ impl PivotEngine {
                             .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
                     }
                     y_cursor += row_height;
-
                     if y_cursor - row_height > self.scroll_y + viewport_h {
                         break;
                     }
                 }
             }
-
             if y_cursor > self.scroll_y + viewport_h {
                 break;
             }
         }
 
-        // Right-edge separator
         ctx.set_stroke_style(&JsValue::from_str("#94a3b8"));
         ctx.set_line_width(2.0);
         ctx.begin_path();
@@ -500,137 +559,21 @@ impl PivotEngine {
         ctx.set_line_width(1.0);
         ctx.restore();
 
-        // ════════════════════════════════════════════════════════════════════
-        // PASS 3 — scrollable header (clipped right of fixed col)
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════
+        // PASS 3 — scrollable header
+        // ════════════════════════════════════════════════════════════════
         ctx.save();
         ctx.begin_path();
         ctx.rect(fixed_w, start_y, viewport_w - fixed_w, total_header_h);
         ctx.clip();
 
-        let season_draw_x = fixed_w - self.scroll_x;
-        let sub_y = start_y + header_h1;
-        let is_exp = self.expanded_col_group;
+        self.draw_scrollable_header(ctx, fixed_w, start_y, header_h1, header_h2, viewport_w)?;
 
-        // season row 1
-        ctx.set_fill_style(&JsValue::from_str("#dbeafe"));
-        ctx.fill_rect(season_draw_x, start_y, season_span_w, header_h1);
-        ctx.set_stroke_style(&JsValue::from_str("#93c5fd"));
-        ctx.set_line_width(1.0);
-        ctx.stroke_rect(
-            season_draw_x + 0.5,
-            start_y + 0.5,
-            season_span_w - 1.0,
-            header_h1 - 1.0,
-        );
-
-        let btn_size = 16.0;
-        let btn_x = season_draw_x + 4.0;
-        let btn_y = start_y + (header_h1 - btn_size) / 2.0;
-
-        ctx.set_fill_style(&JsValue::from_str(if is_exp {
-            "#bfdbfe"
-        } else {
-            "#e0f2fe"
-        }));
-        ctx.begin_path();
-        ctx.round_rect_with_f64(btn_x, btn_y, btn_size, btn_size, 3.0)?;
-        ctx.fill();
-        ctx.set_stroke_style(&JsValue::from_str(if is_exp {
-            "#3b82f6"
-        } else {
-            "#7dd3fc"
-        }));
-        ctx.set_line_width(1.0);
-        ctx.stroke();
-
-        ctx.set_fill_style(&JsValue::from_str(if is_exp {
-            "#1d4ed8"
-        } else {
-            "#0369a1"
-        }));
-        ctx.set_font("bold 11px sans-serif");
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("middle");
-        let arrow = if is_exp { "◀" } else { "▶" };
-        ctx.fill_text(arrow, btn_x + btn_size / 2.0, start_y + header_h1 / 2.0)
-            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-
-        ctx.set_fill_style(&JsValue::from_str("#1e3a8a"));
-        ctx.set_font("bold 14px sans-serif");
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("middle");
-        let btn_end = btn_x + btn_size + 4.0;
-        let label_remaining = season_span_w - (btn_end - season_draw_x);
-        ctx.fill_text(
-            GROUP_COL,
-            btn_end + label_remaining / 2.0,
-            start_y + header_h1 / 2.0,
-        )
-        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-
-        // season row 2
-        ctx.set_fill_style(&JsValue::from_str("#eff6ff"));
-        ctx.fill_rect(season_draw_x, sub_y, season_span_w, header_h2);
-        ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
-        ctx.set_line_width(1.0);
-        ctx.stroke_rect(
-            season_draw_x + 0.5,
-            sub_y + 0.5,
-            season_span_w - 1.0,
-            header_h2 - 1.0,
-        );
-
-        ctx.set_fill_style(&JsValue::from_str("#1e3a8a"));
-        ctx.set_font("bold 12px sans-serif");
-        ctx.set_text_align("center");
-        ctx.set_text_baseline("middle");
-        ctx.fill_text(
-            GROUP_COL,
-            season_draw_x + group_w / 2.0,
-            sub_y + header_h2 / 2.0,
-        )
-        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-
-        if self.expanded_col_group {
-            ctx.set_stroke_style(&JsValue::from_str("#bfdbfe"));
-            ctx.set_line_width(1.0);
-            ctx.begin_path();
-            ctx.move_to(season_draw_x + group_w, sub_y + 2.0);
-            ctx.line_to(season_draw_x + group_w, sub_y + header_h2 - 2.0);
-            ctx.stroke();
-
-            let mut cx = season_draw_x + group_w;
-            for (ci_idx, child) in children.iter().enumerate() {
-                let ci = self.columns.iter().position(|c| c == child).unwrap();
-                let cw = self.col_widths[ci];
-
-                ctx.set_fill_style(&JsValue::from_str("#f0f9ff"));
-                ctx.fill_rect(cx + 1.0, sub_y + 1.0, cw - 1.0, header_h2 - 2.0);
-
-                if ci_idx < children.len() - 1 {
-                    ctx.set_stroke_style(&JsValue::from_str("#bae6fd"));
-                    ctx.set_line_width(1.0);
-                    ctx.begin_path();
-                    ctx.move_to(cx + cw, sub_y + 2.0);
-                    ctx.line_to(cx + cw, sub_y + header_h2 - 2.0);
-                    ctx.stroke();
-                }
-
-                ctx.set_fill_style(&JsValue::from_str("#0c4a6e"));
-                ctx.set_font("bold 12px sans-serif");
-                ctx.set_text_align("center");
-                ctx.set_text_baseline("middle");
-                ctx.fill_text(child, cx + cw / 2.0, sub_y + header_h2 / 2.0)
-                    .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-                cx += cw;
-            }
-        }
         ctx.restore();
 
-        // ════════════════════════════════════════════════════════════════════
-        // PASS 4 — pinned competition header (always on top)
-        // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════
+        // PASS 4 — pinned competition header
+        // ════════════════════════════════════════════════════════════════
         ctx.set_fill_style(&JsValue::from_str("#e2e8f0"));
         ctx.fill_rect(0.0, start_y, fixed_w, total_header_h);
         ctx.set_stroke_style(&JsValue::from_str("#94a3b8"));
@@ -642,7 +585,6 @@ impl PivotEngine {
         ctx.set_text_baseline("middle");
         ctx.fill_text(FIXED_COL, fixed_w / 2.0, start_y + total_header_h / 2.0)
             .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
-
         ctx.set_stroke_style(&JsValue::from_str("#94a3b8"));
         ctx.set_line_width(2.0);
         ctx.begin_path();
@@ -651,47 +593,34 @@ impl PivotEngine {
         ctx.stroke();
         ctx.set_line_width(1.0);
 
-        // ── Resize handles ─────────────────────────────────────────────────
-        let header_row1_h = 30.0;
-        let header_row2_h = 24.0;
-        let total_header_h2 = header_row1_h + header_row2_h;
-
+        // ── Resize handles ──────────────────────────────────────────────
         ctx.set_stroke_style(&JsValue::from_str("#64748b"));
         ctx.set_line_width(2.0);
 
-        let get_handle_ys = |col_name: &str| -> (f64, f64) {
-            if col_name == FIXED_COL {
-                (start_y + 6.0, start_y + total_header_h2 - 6.0)
-            } else {
-                (
-                    start_y + header_row1_h + 6.0,
-                    start_y + total_header_h2 - 6.0,
-                )
-            }
-        };
-
-        let (top_y, bottom_y) = get_handle_ys(FIXED_COL);
+        // fixed col border
         ctx.begin_path();
-        ctx.move_to(fixed_w, top_y);
-        ctx.line_to(fixed_w, bottom_y);
+        ctx.move_to(fixed_w, start_y + 6.0);
+        ctx.line_to(fixed_w, start_y + total_header_h - 6.0);
         ctx.stroke();
 
-        for (col, sx, cw) in &col_screen_positions {
-            if col == FIXED_COL {
+        // scrollable col borders
+        for (vc, sx, cw) in &col_positions {
+            if vc.key == FIXED_COL {
                 continue;
             }
             let border_x = sx + cw;
             if border_x > fixed_w && border_x < viewport_w {
-                let (top_y, bottom_y) = get_handle_ys(col);
+                let top_y = start_y + header_h1 + 6.0;
+                let bot_y = start_y + total_header_h - 6.0;
                 ctx.begin_path();
                 ctx.move_to(border_x, top_y);
-                ctx.line_to(border_x, bottom_y);
+                ctx.line_to(border_x, bot_y);
                 ctx.stroke();
             }
         }
         ctx.set_line_width(1.0);
 
-        // ── Vertical scrollbar ───────────────────────────────────────────────
+        // ── Vertical scrollbar ─────────────────────────────────────────
         let thumb = self.scrollbar_thumb_rect();
         if thumb[2] > 0.0 {
             ctx.set_fill_style(&JsValue::from_str("#f1f5f9"));
@@ -702,7 +631,7 @@ impl PivotEngine {
             ctx.fill();
         }
 
-        // ── Horizontal scrollbar ─────────────────────────────────────────────
+        // ── Horizontal scrollbar ───────────────────────────────────────
         let hthumb = self.hscrollbar_thumb_rect();
         if hthumb[2] > 0.0 {
             ctx.set_fill_style(&JsValue::from_str("#f1f5f9"));
@@ -715,86 +644,14 @@ impl PivotEngine {
 
         Ok(())
     }
-
-    pub fn toggle_col_group(&mut self) {
-        self.expanded_col_group = !self.expanded_col_group;
-    }
-
-    pub fn is_col_group_expanded(&self) -> bool {
-        self.expanded_col_group
-    }
-
-    pub fn get_visible_col_widths(&self) -> Vec<f64> {
-        self.visible_data_columns()
-            .iter()
-            .map(|col| {
-                let i = self.columns.iter().position(|c| c == col).unwrap();
-                self.col_widths[i]
-            })
-            .collect()
-    }
-
-    pub fn set_visible_col_width(&mut self, visible_idx: usize, width: f64) {
-        let visible = self.visible_data_columns();
-        if let Some(col) = visible.get(visible_idx) {
-            if let Some(i) = self.columns.iter().position(|c| c == col) {
-                self.col_widths[i] = width.max(30.0);
-            }
-        }
-    }
-
-    pub fn hit_test_col_toggle(&self, px: f64, py: f64, _start_y: f64, _header_h: f64) -> bool {
-        if py < 0.0 || py > 30.0 {
-            return false;
-        }
-        let fixed_idx = self.columns.iter().position(|c| c == FIXED_COL).unwrap();
-        let fixed_w = self.col_widths[fixed_idx];
-        let season_x = fixed_w;
-        let btn_x = season_x + 4.0;
-        px >= btn_x && px <= btn_x + 16.0
-    }
-
-    pub fn swap_visible_columns(&mut self, from_visible_idx: usize, to_visible_idx: usize) {
-        let visible = self.visible_data_columns();
-        if from_visible_idx == 0 || to_visible_idx == 0 {
-            return;
-        }
-        if from_visible_idx == to_visible_idx {
-            return;
-        }
-        if from_visible_idx >= visible.len() || to_visible_idx >= visible.len() {
-            return;
-        }
-
-        let from_col = &visible[from_visible_idx].clone();
-        let to_col = &visible[to_visible_idx].clone();
-
-        if let (Some(fi), Some(ti)) = (
-            self.columns.iter().position(|c| c == from_col),
-            self.columns.iter().position(|c| c == to_col),
-        ) {
-            self.columns.swap(fi, ti);
-            self.col_widths.swap(fi, ti);
-        }
-    }
-
-    pub fn get_col_name_at_visible_idx(&self, visible_idx: usize) -> String {
-        self.visible_data_columns()
-            .get(visible_idx)
-            .cloned()
-            .unwrap_or_default()
-    }
 }
 
-// Private helpers
+// ─── Private helpers ─────────────────────────────────────────────────────────
+
 impl PivotEngine {
-    /// Группирует self.data по полю "competition".
-    /// row_indices внутри группы сортируются по "season" (числовая сортировка, по возрастанию).
-    /// Порядок групп — по первому появлению в данных.
     fn rebuild_groups(&mut self) {
         let mut order: Vec<String> = Vec::new();
         let mut map: HashMap<String, Vec<usize>> = HashMap::new();
-
         for (idx, row) in self.data.iter().enumerate() {
             let comp = row.fields.get(FIXED_COL).cloned().unwrap_or_default();
             if !map.contains_key(&comp) {
@@ -806,8 +663,6 @@ impl PivotEngine {
         let mut groups: Vec<Group> = Vec::with_capacity(order.len());
         for comp in order {
             let mut row_indices = map.remove(&comp).unwrap_or_default();
-
-            // Сортировка по "season" по возрастанию (числовая, с фоллбэком на строковую)
             row_indices.sort_by(|&a, &b| {
                 let sa = self.data[a]
                     .fields
@@ -824,50 +679,403 @@ impl PivotEngine {
                     _ => sa.cmp(&sb),
                 }
             });
-
             groups.push(Group {
                 competition: comp,
                 row_indices,
             });
         }
-
         self.groups = groups;
+
+        // Build col_groups
+        let mut winner_members: Vec<String> = {
+            let mut set = HashSet::new();
+            for row in &self.data {
+                if let Some(v) = row.fields.get(WINNER_COL) {
+                    if !v.is_empty() {
+                        set.insert(v.clone());
+                    }
+                }
+            }
+            let mut v: Vec<String> = set.into_iter().collect();
+            v.sort();
+            v
+        };
+        let mut runner_up_members: Vec<String> = {
+            let mut set = HashSet::new();
+            for row in &self.data {
+                if let Some(v) = row.fields.get(RUNNER_UP_COL) {
+                    if !v.is_empty() {
+                        set.insert(v.clone());
+                    }
+                }
+            }
+            let mut v: Vec<String> = set.into_iter().collect();
+            v.sort();
+            v
+        };
+
+        self.col_groups = vec![
+            ColGroup {
+                key: WINNER_COL.to_string(),
+                label: "Winner".to_string(),
+                expanded: false,
+                members: winner_members,
+            },
+            ColGroup {
+                key: RUNNER_UP_COL.to_string(),
+                label: "Runner Up".to_string(),
+                expanded: false,
+                members: runner_up_members,
+            },
+        ];
     }
 
     fn compute_columns_and_widths(
         &mut self,
         ctx: &CanvasRenderingContext2d,
     ) -> Result<(), JsValue> {
-        let mut col_set = HashSet::new();
-        for row in &self.data {
-            for key in row.fields.keys() {
-                col_set.insert(key.clone());
+        // columns = [FIXED_COL, GROUP_COL] + all winner members + all runner_up members
+        let mut columns = vec![FIXED_COL.to_string(), GROUP_COL.to_string()];
+        for cg in &self.col_groups {
+            columns.push(cg.key.clone()); // header width slot
+            for m in &cg.members {
+                columns.push(format!("{}::{}", cg.key, m));
             }
         }
-        let mut columns: Vec<String> = col_set.into_iter().collect();
-        columns.sort();
         self.columns = columns;
 
         ctx.set_font("bold 14px sans-serif");
         let mut widths: Vec<f64> = self
             .columns
             .iter()
-            .map(|col| Ok(ctx.measure_text(col)?.width() + 20.0))
+            .map(|col| {
+                let label = if col.contains("::") {
+                    col.split("::").nth(1).unwrap_or(col).to_string()
+                } else {
+                    col.clone()
+                };
+                Ok(ctx.measure_text(&label)?.width() + 20.0)
+            })
             .collect::<Result<Vec<_>, JsValue>>()?;
 
-        // Сэмплируем первые 200 строк для оценки ширины — иначе O(n) по
-        // всем строкам "зависает" при больших данных.
+        // Sample rows for data widths — for member cols the value is "1" or ""
         ctx.set_font("12px sans-serif");
         for row in self.data.iter().take(200) {
             for (i, col) in self.columns.iter().enumerate() {
-                let text = row.fields.get(col).map(|s| s.as_str()).unwrap_or("");
+                let text = if col.contains("::") {
+                    let parts: Vec<&str> = col.splitn(2, "::").collect();
+                    let group_key = parts[0];
+                    let member = parts[1];
+                    if row
+                        .fields
+                        .get(group_key)
+                        .map(|v| v == member)
+                        .unwrap_or(false)
+                    {
+                        "1"
+                    } else {
+                        ""
+                    }
+                } else {
+                    row.fields.get(col).map(|s| s.as_str()).unwrap_or("")
+                };
                 let w = ctx.measure_text(text)?.width() + 20.0;
                 if w > widths[i] {
                     widths[i] = w;
                 }
             }
         }
+        // Member cols: cap at reasonable width
+        for (i, col) in self.columns.iter().enumerate() {
+            if col.contains("::") {
+                widths[i] = widths[i].max(30.0).min(80.0);
+            }
+        }
         self.col_widths = widths;
+        Ok(())
+    }
+
+    fn fixed_col_width(&self) -> f64 {
+        self.width_idx_for(FIXED_COL)
+            .pipe(|i| self.col_widths.get(i).copied().unwrap_or(120.0))
+    }
+
+    fn width_idx_for(&self, col: &str) -> usize {
+        self.columns.iter().position(|c| c == col).unwrap_or(0)
+    }
+
+    /// Build visible cols list: [competition, season, (winner_header + winner_members?), (runner_up_header + runner_up_members?)]
+    fn visible_cols(&self) -> Vec<VisCol> {
+        let mut result = Vec::new();
+
+        // competition (pinned)
+        result.push(VisCol {
+            key: FIXED_COL.to_string(),
+            label: FIXED_COL.to_string(),
+            width_idx: self.width_idx_for(FIXED_COL),
+            col_group_idx: None,
+        });
+
+        // season
+        result.push(VisCol {
+            key: GROUP_COL.to_string(),
+            label: GROUP_COL.to_string(),
+            width_idx: self.width_idx_for(GROUP_COL),
+            col_group_idx: None,
+        });
+
+        // col groups
+        for (cgi, cg) in self.col_groups.iter().enumerate() {
+            // header slot
+            result.push(VisCol {
+                key: cg.key.clone(),
+                label: cg.label.clone(),
+                width_idx: self.width_idx_for(&cg.key),
+                col_group_idx: Some(cgi),
+            });
+
+            if cg.expanded {
+                for m in &cg.members {
+                    let col_key = format!("{}::{}", cg.key, m);
+                    result.push(VisCol {
+                        key: col_key.clone(),
+                        label: m.clone(),
+                        width_idx: self.width_idx_for(&col_key),
+                        col_group_idx: Some(cgi),
+                    });
+                }
+            }
+        }
+        result
+    }
+
+    /// Build (VisCol, screen_x, width) for all visible cols
+    fn build_col_screen_positions(&self, fixed_w: f64) -> Vec<(VisCol, f64, f64)> {
+        let vcs = self.visible_cols();
+        let mut result = Vec::with_capacity(vcs.len());
+        let mut x = fixed_w - self.scroll_x;
+
+        for vc in vcs {
+            let cw = self.col_widths[vc.width_idx];
+            if vc.key == FIXED_COL {
+                result.push((vc, 0.0, fixed_w));
+            } else {
+                result.push((vc, x, cw));
+                x += cw;
+            }
+        }
+        result
+    }
+
+    /// Get display value for a cell given a VisCol
+    fn get_cell_value(&self, row: &DataRow, vc: &VisCol) -> String {
+        if vc.key.contains("::") {
+            let parts: Vec<&str> = vc.key.splitn(2, "::").collect();
+            let group_key = parts[0];
+            let member = parts[1];
+            if row
+                .fields
+                .get(group_key)
+                .map(|v| v == member)
+                .unwrap_or(false)
+            {
+                "●".to_string()
+            } else {
+                String::new()
+            }
+        } else {
+            row.fields.get(&vc.key).cloned().unwrap_or_default()
+        }
+    }
+
+    fn col_group_header_width(&self, cgi: usize) -> f64 {
+        let cg = &self.col_groups[cgi];
+        let header_w = self
+            .col_widths
+            .get(self.width_idx_for(&cg.key))
+            .copied()
+            .unwrap_or(80.0);
+        if cg.expanded {
+            let members_w: f64 = cg
+                .members
+                .iter()
+                .map(|m| {
+                    let key = format!("{}::{}", cg.key, m);
+                    self.col_widths
+                        .get(self.width_idx_for(&key))
+                        .copied()
+                        .unwrap_or(40.0)
+                })
+                .sum();
+            header_w + members_w
+        } else {
+            header_w
+        }
+    }
+
+    fn draw_scrollable_header(
+        &self,
+        ctx: &CanvasRenderingContext2d,
+        fixed_w: f64,
+        start_y: f64,
+        header_h1: f64,
+        header_h2: f64,
+        viewport_w: f64,
+    ) -> Result<(), JsValue> {
+        let sub_y = start_y + header_h1;
+        let col_positions = self.build_col_screen_positions(fixed_w);
+
+        // ── Row 1: season col header + col-group headers ──────────────
+        // season header (row 1 + row 2 merged)
+        let season_wi = self.width_idx_for(GROUP_COL);
+        let season_w = self.col_widths[season_wi];
+        // find screen x of season col
+        let season_sx = col_positions
+            .iter()
+            .find(|(vc, _, _)| vc.key == GROUP_COL)
+            .map(|(_, sx, _)| *sx)
+            .unwrap_or(fixed_w);
+
+        // season: spans both rows
+        ctx.set_fill_style(&JsValue::from_str("#e2e8f0"));
+        ctx.fill_rect(season_sx, start_y, season_w, header_h1 + header_h2);
+        ctx.set_stroke_style(&JsValue::from_str("#94a3b8"));
+        ctx.set_line_width(1.0);
+        ctx.stroke_rect(
+            season_sx + 0.5,
+            start_y + 0.5,
+            season_w - 1.0,
+            header_h1 + header_h2 - 1.0,
+        );
+        ctx.set_fill_style(&JsValue::from_str("#1e293b"));
+        ctx.set_font("bold 13px sans-serif");
+        ctx.set_text_align("center");
+        ctx.set_text_baseline("middle");
+        ctx.fill_text(
+            GROUP_COL,
+            season_sx + season_w / 2.0,
+            start_y + (header_h1 + header_h2) / 2.0,
+        )
+        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+        // Col group headers
+        for (cgi, cg) in self.col_groups.iter().enumerate() {
+            let span_w = self.col_group_header_width(cgi);
+            // find screen x of this group's header col
+            let group_sx = col_positions
+                .iter()
+                .find(|(vc, _, _)| vc.key == cg.key && vc.col_group_idx == Some(cgi))
+                .map(|(_, sx, _)| *sx)
+                .unwrap_or(0.0);
+
+            let header_col_w = self.col_widths[self.width_idx_for(&cg.key)];
+            let is_exp = cg.expanded;
+
+            // Row 1 background (spans full group)
+            let row1_fill = if cgi % 2 == 0 { "#dbeafe" } else { "#dcfce7" };
+            let row1_stroke = if cgi % 2 == 0 { "#93c5fd" } else { "#86efac" };
+            ctx.set_fill_style(&JsValue::from_str(row1_fill));
+            ctx.fill_rect(group_sx, start_y, span_w, header_h1);
+            ctx.set_stroke_style(&JsValue::from_str(row1_stroke));
+            ctx.set_line_width(1.0);
+            ctx.stroke_rect(group_sx + 0.5, start_y + 0.5, span_w - 1.0, header_h1 - 1.0);
+
+            // Toggle button
+            let btn_size = 16.0;
+            let btn_x = group_sx + 4.0;
+            let btn_y = start_y + (header_h1 - btn_size) / 2.0;
+            let btn_fill = if is_exp { "#bfdbfe" } else { "#e0f2fe" };
+            let btn_stroke = if is_exp { "#3b82f6" } else { "#7dd3fc" };
+            ctx.set_fill_style(&JsValue::from_str(btn_fill));
+            ctx.begin_path();
+            ctx.round_rect_with_f64(btn_x, btn_y, btn_size, btn_size, 3.0)?;
+            ctx.fill();
+            ctx.set_stroke_style(&JsValue::from_str(btn_stroke));
+            ctx.stroke();
+            let arrow_color = if is_exp { "#1d4ed8" } else { "#0369a1" };
+            ctx.set_fill_style(&JsValue::from_str(arrow_color));
+            ctx.set_font("bold 11px sans-serif");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let arrow = if is_exp { "◀" } else { "▶" };
+            ctx.fill_text(arrow, btn_x + btn_size / 2.0, start_y + header_h1 / 2.0)
+                .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+            // Label
+            let label_fill = if cgi % 2 == 0 { "#1e3a8a" } else { "#14532d" };
+            ctx.set_fill_style(&JsValue::from_str(label_fill));
+            ctx.set_font("bold 13px sans-serif");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            let btn_end = btn_x + btn_size + 4.0;
+            let label_remaining = span_w - (btn_end - group_sx);
+            ctx.fill_text(
+                &cg.label,
+                btn_end + label_remaining / 2.0,
+                start_y + header_h1 / 2.0,
+            )
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+            // Row 2
+            let row2_fill = if cgi % 2 == 0 { "#eff6ff" } else { "#f0fdf4" };
+            ctx.set_fill_style(&JsValue::from_str(row2_fill));
+            ctx.fill_rect(group_sx, sub_y, span_w, header_h2);
+            ctx.set_stroke_style(&JsValue::from_str(row1_stroke));
+            ctx.set_line_width(1.0);
+            ctx.stroke_rect(group_sx + 0.5, sub_y + 0.5, span_w - 1.0, header_h2 - 1.0);
+
+            // Row 2 sub-cols: header col label
+            ctx.set_fill_style(&JsValue::from_str(label_fill));
+            ctx.set_font("bold 11px sans-serif");
+            ctx.set_text_align("center");
+            ctx.set_text_baseline("middle");
+            ctx.fill_text(
+                &cg.key,
+                group_sx + header_col_w / 2.0,
+                sub_y + header_h2 / 2.0,
+            )
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+            // Row 2 member sub-cols (if expanded)
+            if is_exp {
+                let mut mx = group_sx + header_col_w;
+                for (mi, member) in cg.members.iter().enumerate() {
+                    let col_key = format!("{}::{}", cg.key, member);
+                    let mw = self
+                        .col_widths
+                        .get(self.width_idx_for(&col_key))
+                        .copied()
+                        .unwrap_or(40.0);
+
+                    // separator
+                    ctx.set_stroke_style(&JsValue::from_str(row1_stroke));
+                    ctx.set_line_width(1.0);
+                    ctx.begin_path();
+                    ctx.move_to(mx, sub_y + 2.0);
+                    ctx.line_to(mx, sub_y + header_h2 - 2.0);
+                    ctx.stroke();
+
+                    ctx.set_fill_style(&JsValue::from_str(if cgi % 2 == 0 {
+                        "#f0f9ff"
+                    } else {
+                        "#f0fdf4"
+                    }));
+                    ctx.fill_rect(mx + 1.0, sub_y + 1.0, mw - 1.0, header_h2 - 2.0);
+
+                    ctx.set_fill_style(&JsValue::from_str(if cgi % 2 == 0 {
+                        "#0c4a6e"
+                    } else {
+                        "#14532d"
+                    }));
+                    ctx.set_font("bold 10px sans-serif");
+                    ctx.set_text_align("center");
+                    ctx.set_text_baseline("middle");
+                    ctx.fill_text(member, mx + mw / 2.0, sub_y + header_h2 / 2.0)
+                        .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+                    mx += mw;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -875,9 +1083,9 @@ impl PivotEngine {
         let canvas = ctx.canvas().unwrap();
         let width = canvas.width() as f64;
         let height = canvas.height() as f64;
-        set_canvas_fill_color(ctx, "#ffffff");
+        ctx.set_fill_style(&JsValue::from_str("#ffffff"));
         ctx.fill_rect(0.0, 0.0, width, height);
-        set_canvas_fill_color(ctx, "#999999");
+        ctx.set_fill_style(&JsValue::from_str("#999999"));
         ctx.set_font("16px sans-serif");
         let msg = "No data to display";
         let text_width = ctx.measure_text(msg)?.width();
@@ -885,31 +1093,12 @@ impl PivotEngine {
             .map_err(|e| JsValue::from_str(&format!("Text error: {:?}", e)))?;
         Ok(())
     }
-
-    fn season_children(&self) -> Vec<&String> {
-        self.columns
-            .iter()
-            .filter(|c| c.as_str() != FIXED_COL && c.as_str() != GROUP_COL)
-            .collect()
-    }
-
-    fn visible_data_columns(&self) -> Vec<String> {
-        let mut result = vec![FIXED_COL.to_string(), GROUP_COL.to_string()];
-        if self.expanded_col_group {
-            for c in self.season_children() {
-                result.push(c.clone());
-            }
-        }
-        result
-    }
 }
 
-fn set_canvas_fill_color(context: &CanvasRenderingContext2d, color: &str) {
-    let context_val: &JsValue = context;
-    js_sys::Reflect::set(
-        context_val,
-        &JsValue::from_str("fillStyle"),
-        &JsValue::from_str(color),
-    )
-    .unwrap();
+// tiny pipe helper so fixed_col_width is ergonomic
+trait Pipe: Sized {
+    fn pipe<F: FnOnce(Self) -> R, R>(self, f: F) -> R {
+        f(self)
+    }
 }
+impl Pipe for usize {}

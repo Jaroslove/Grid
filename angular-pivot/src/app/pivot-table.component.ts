@@ -31,27 +31,22 @@ export class PivotTableComponent implements OnInit, OnDestroy {
   private animFrame: number | null = null;
   private destroyed = false;
 
-  // ── Column resize state ──────────────────────────────────────────────────
-  private drag = {
-    active: false,
-    colIdx: -1,
-    startX: 0,
-    startWidth: 0,
-  };
+  // ── Column resize ─────────────────────────────────────────────────────────
+  private drag = { active: false, colIdx: -1, startX: 0, startWidth: 0 };
   private hoverColBorder = -1;
   private readonly RESIZE_HIT_ZONE = 5;
 
-  // ── Column swap drag state ───────────────────────────────────────────────
+  // ── Column swap ───────────────────────────────────────────────────────────
   private colSwap = {
     active: false,
-    fromIdx: -1, // visible col index being dragged
+    fromIdx: -1,
     startX: 0,
     startY: 0,
     currentX: 0,
-    targetIdx: -1, // visible col index under cursor
+    targetIdx: -1,
   };
 
-  // ── Scroll drag state ────────────────────────────────────────────────────
+  // ── Scroll drag ───────────────────────────────────────────────────────────
   private scrollDrag = false;
   private scrollDragStartY = 0;
   private scrollDragStartScroll = 0;
@@ -75,7 +70,6 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       .toPromise();
     const dataRows = populateDataRows(parsedData);
     const dataRowsUefa = populateDataRows(parsedDataUefa);
-    // const increased = Array.from({ length: 10 }, () => dataRows).flat();
     const combined = [...dataRows, ...dataRowsUefa];
     this.pivotSvc.setData(combined);
     await this.pivotSvc.initEngine();
@@ -89,7 +83,6 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     if (this.animFrame) cancelAnimationFrame(this.animFrame);
   }
 
-  // ── Init ─────────────────────────────────────────────────────────────────
   init() {
     const canvas = this.canvasRef.nativeElement;
     this.ctx = canvas.getContext("2d")!;
@@ -122,17 +115,15 @@ export class PivotTableComponent implements OnInit, OnDestroy {
   scheduleRender(): void {
     if (this.animFrame) cancelAnimationFrame(this.animFrame);
     this.animFrame = requestAnimationFrame(() => {
-      if (!this.destroyed && this.ctx) {
-        this.pivotSvc.render(this.ctx);
-      }
+      if (!this.destroyed && this.ctx) this.pivotSvc.render(this.ctx);
     });
   }
 
-  // ── Unified mousedown ────────────────────────────────────────────────────
+  // ── Mousedown ─────────────────────────────────────────────────────────────
   private onMouseDown(e: MouseEvent) {
     const { px, py } = this.canvasPos(e);
 
-    // ── Horizontal scrollbar ─────────────────────────────────────────────
+    // Horizontal scrollbar
     const hthumb = this.pivotSvc.hscrollbar_thumb_rect();
     if (
       hthumb[2] > 0 &&
@@ -148,8 +139,8 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // ── Vertical scrollbar ───────────────────────────────────────────────
-    const thumb = Array.from(this.pivotSvc.scrollbar_thumb_rect());
+    // Vertical scrollbar
+    const thumb = this.pivotSvc.scrollbar_thumb_rect();
     if (
       px >= thumb[0] &&
       px <= thumb[0] + thumb[2] &&
@@ -163,7 +154,7 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // ── Column resize ────────────────────────────────────────────────────
+    // Column resize
     const borderCol = this.getBorderColAt(px, py);
     if (borderCol >= 0) {
       const visibleWidths = this.pivotSvc.get_visible_col_widths();
@@ -177,10 +168,9 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // ── Column swap drag — only in header, not on border ─────────────────
+    // Column swap drag — only in header
     if (py >= 0 && py <= 54) {
       const colIdx = this.getColAtScreenX(px);
-      // don't allow dragging fixed col (idx 0) or -1
       if (colIdx > 0) {
         this.colSwap = {
           active: true,
@@ -195,7 +185,7 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ── Unified mousemove ────────────────────────────────────────────────────
+  // ── Mousemove ─────────────────────────────────────────────────────────────
   private onMouseMove(e: MouseEvent) {
     const canvas = this.canvasRef.nativeElement;
     const { px, py } = this.canvasPos(e);
@@ -204,11 +194,10 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       const delta = px - this.hScrollDragStartX;
       const totalW = this.pivotSvc
         .get_visible_col_widths()
-        .reduce((a: number, b: number) => a + b, 0);
+        .reduce((a, b) => a + b, 0);
       const viewportW = canvas.width - 10;
-      const scrollRatio = totalW / viewportW;
       this.pivotSvc.set_scroll_x(
-        this.hScrollDragStartScroll + delta * scrollRatio,
+        this.hScrollDragStartScroll + delta * (totalW / viewportW),
       );
       this.pivotSvc.render(this.ctx!);
       return;
@@ -218,9 +207,8 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       const delta = py - this.scrollDragStartY;
       const contentH = this.pivotSvc.total_content_height();
       const viewportH = canvas.height - 54;
-      const scrollRatio = contentH / viewportH;
       this.pivotSvc.set_scroll_y(
-        this.scrollDragStartScroll + delta * scrollRatio,
+        this.scrollDragStartScroll + delta * (contentH / viewportH),
       );
       this.pivotSvc.render(this.ctx!);
       return;
@@ -228,8 +216,10 @@ export class PivotTableComponent implements OnInit, OnDestroy {
 
     if (this.drag.active) {
       const delta = px - this.drag.startX;
-      const newWidth = Math.max(30, this.drag.startWidth + delta);
-      this.pivotSvc.set_visible_col_width(this.drag.colIdx, newWidth);
+      this.pivotSvc.set_visible_col_width(
+        this.drag.colIdx,
+        Math.max(30, this.drag.startWidth + delta),
+      );
       this.pivotSvc.render(this.ctx!);
       canvas.style.cursor = "col-resize";
       return;
@@ -239,7 +229,6 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       this.colSwap.currentX = px;
       this.colSwap.targetIdx = this.getColAtScreenX(px);
       canvas.style.cursor = "grabbing";
-      // Render with ghost overlay
       this.pivotSvc.render(this.ctx!);
       this.drawSwapGhost();
       return;
@@ -259,18 +248,21 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ── Unified mouseup ──────────────────────────────────────────────────────
+  // ── Mouseup ───────────────────────────────────────────────────────────────
   private onMouseUp(e: MouseEvent) {
     const canvas = this.canvasRef.nativeElement;
 
     if (this.colSwap.active) {
       const { fromIdx, targetIdx } = this.colSwap;
-      this.colSwap.active = false;
-      this.colSwap.fromIdx = -1;
-      this.colSwap.targetIdx = -1;
+      this.colSwap = {
+        active: false,
+        fromIdx: -1,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        targetIdx: -1,
+      };
       canvas.style.cursor = "default";
-
-      // Perform swap if dropped on a different valid column
       if (targetIdx > 0 && targetIdx !== fromIdx) {
         this.pivotSvc.swap_visible_columns(fromIdx, targetIdx);
       }
@@ -281,8 +273,7 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     this.hScrollDrag = false;
     this.scrollDrag = false;
     if (this.drag.active) {
-      this.drag.active = false;
-      this.drag.colIdx = -1;
+      this.drag = { active: false, colIdx: -1, startX: 0, startWidth: 0 };
       canvas.style.cursor = "default";
     }
   }
@@ -291,28 +282,35 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     const canvas = this.canvasRef.nativeElement;
     this.hScrollDrag = false;
     this.scrollDrag = false;
-    this.colSwap.active = false;
+    this.colSwap = {
+      active: false,
+      fromIdx: -1,
+      startX: 0,
+      startY: 0,
+      currentX: 0,
+      targetIdx: -1,
+    };
     if (this.drag.active) this.drag.active = false;
     this.hoverColBorder = -1;
     canvas.style.cursor = "default";
     this.pivotSvc.render(this.ctx!);
   }
 
-  // ── Click ────────────────────────────────────────────────────────────────
+  // ── Click ─────────────────────────────────────────────────────────────────
   private onCanvasClick(e: MouseEvent) {
-    // Ignore if mouse moved significantly (was a drag)
     if (Math.abs(e.movementX) > 3) return;
     const { px, py } = this.canvasPos(e);
 
-    // Column group toggle
-    if (this.pivotSvc.hit_test_col_toggle(px, py, 30.0, 30.0)) {
-      this.pivotSvc.toggle_col_group();
+    // Col group toggle (winner / runner_up)
+    const cgIdx = this.pivotSvc.hit_test_col_group_toggle(px, py);
+    if (cgIdx >= 0) {
+      this.pivotSvc.toggle_col_group(cgIdx);
       this.pivotSvc.render(this.ctx!);
       return;
     }
 
-    // Row toggle
-    const firstColWidth = this.pivotSvc.get_col_widths()[0] ?? 120;
+    // Row toggle (competition group expand/collapse)
+    const firstColWidth = this.pivotSvc.get_visible_col_widths()[0] ?? 120;
     if (px <= firstColWidth && px <= 24.0) {
       const rowIdx = this.pivotSvc.hit_test_row(
         py,
@@ -328,25 +326,18 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ── Swap ghost overlay ───────────────────────────────────────────────────
+  // ── Swap ghost overlay ────────────────────────────────────────────────────
   private drawSwapGhost(): void {
     const ctx = this.ctx!;
     const { fromIdx, currentX, targetIdx } = this.colSwap;
     const widths = this.pivotSvc.get_visible_col_widths();
-    const scrollX = this.pivotSvc.get_scroll_x();
-
-    // Get screen x of dragged column center
-    const fromScreenX = this.getColScreenLeft(fromIdx);
     const fromW = widths[fromIdx] ?? 80;
 
-    // Draw semi-transparent ghost of dragged column
     ctx.save();
     ctx.globalAlpha = 0.45;
     ctx.fillStyle = "#3b82f6";
     ctx.fillRect(currentX - fromW / 2, 0, fromW, 54);
     ctx.globalAlpha = 1.0;
-
-    // Column name label on ghost
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
@@ -354,7 +345,6 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     const colName = this.pivotSvc.get_col_name_at_visible_idx(fromIdx);
     ctx.fillText(colName, currentX, 27, fromW - 8);
 
-    // Drop target highlight
     if (targetIdx > 0 && targetIdx !== fromIdx) {
       const targetLeft = this.getColScreenLeft(targetIdx);
       const targetW = widths[targetIdx] ?? 80;
@@ -362,35 +352,24 @@ export class PivotTableComponent implements OnInit, OnDestroy {
       ctx.fillStyle = "#22c55e";
       ctx.fillRect(targetLeft, 0, targetW, 54);
       ctx.globalAlpha = 1.0;
-
-      // Drop indicator line
       ctx.strokeStyle = "#16a34a";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      // Line on the side closer to drag direction
-      const lineX =
-        currentX > fromScreenX
-          ? targetLeft + targetW // dropping to the right
-          : targetLeft; // dropping to the left
+      const fromScreenX = this.getColScreenLeft(fromIdx);
+      const lineX = currentX > fromScreenX ? targetLeft + targetW : targetLeft;
       ctx.moveTo(lineX, 0);
       ctx.lineTo(lineX, 54);
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  /** Returns visible col index at screen px, or -1 */
   private getColAtScreenX(px: number): number {
     const widths = this.pivotSvc.get_visible_col_widths();
     const scrollX = this.pivotSvc.get_scroll_x();
-
-    // Fixed col (competition)
     if (px < widths[0]) return 0;
-
-    // Scrollable cols
     let x = widths[0] - scrollX;
     for (let i = 1; i < widths.length; i++) {
       if (px >= x && px < x + widths[i]) return i;
@@ -399,32 +378,26 @@ export class PivotTableComponent implements OnInit, OnDestroy {
     return -1;
   }
 
-  /** Returns screen left edge of a visible col */
   private getColScreenLeft(visibleIdx: number): number {
     const widths = this.pivotSvc.get_visible_col_widths();
     const scrollX = this.pivotSvc.get_scroll_x();
     if (visibleIdx === 0) return 0;
     let x = widths[0] - scrollX;
-    for (let i = 1; i < visibleIdx; i++) {
-      x += widths[i];
-    }
+    for (let i = 1; i < visibleIdx; i++) x += widths[i];
     return x;
   }
 
-  /** Returns col index if px is near a column border in the header, else -1 */
   private getBorderColAt(px: number, py: number): number {
     if (py < 0 || py > 54) return -1;
     const widths = this.pivotSvc.get_visible_col_widths();
     const scrollX = this.pivotSvc.get_scroll_x();
 
-    // Fixed col right border
     if (Math.abs(px - widths[0]) <= this.RESIZE_HIT_ZONE) return 0;
 
-    // Scrollable cols
     let x = widths[0] - scrollX;
     for (let i = 1; i < widths.length; i++) {
       x += widths[i];
-      if (x < widths[0]) continue; // behind pinned col
+      if (x < widths[0]) continue;
       if (Math.abs(x - px) <= this.RESIZE_HIT_ZONE) return i;
     }
     return -1;

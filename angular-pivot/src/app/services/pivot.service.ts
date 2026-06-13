@@ -6,7 +6,6 @@ import { DataRow } from "../models/pivot.models";
 export class PivotService {
   private engine: any = null;
 
-  // Signals
   data = signal<DataRow[]>([]);
   availableFields = signal<string[]>([]);
   isComputing = signal(false);
@@ -18,31 +17,37 @@ export class PivotService {
     this.data.set(rows);
     const fields = rows.length > 0 ? Object.keys(rows[0].fields) : [];
     this.availableFields.set(fields);
-
     if (this.engine) {
       this.engine.update_data(rows);
     }
   }
 
   async initEngine(): Promise<void> {
-    const d = this.data();
-    this.engine = this.wasmService.createEngine(d);
+    this.engine = this.wasmService.createEngine(this.data());
   }
 
   set_viewport(width: number, height: number) {
     this.engine.set_viewport(width, height);
   }
 
-  set_scroll_y(newScroll: number): void {
-    this.engine.set_scroll_y(newScroll);
+  set_scroll_y(v: number) {
+    this.engine.set_scroll_y(v);
   }
-
   get_scroll_y(): number {
     return this.engine.get_scroll_y();
   }
+  set_scroll_x(v: number) {
+    this.engine.set_scroll_x(v);
+  }
+  get_scroll_x(): number {
+    return this.engine.get_scroll_x();
+  }
 
   scrollbar_thumb_rect(): number[] {
-    return this.engine.scrollbar_thumb_rect();
+    return Array.from(this.engine.scrollbar_thumb_rect());
+  }
+  hscrollbar_thumb_rect(): number[] {
+    return Array.from(this.engine.hscrollbar_thumb_rect());
   }
 
   total_content_height(): number {
@@ -54,17 +59,21 @@ export class PivotService {
     this.engine.render(ctx);
   }
 
-  hit_test_col_toggle(
-    px: number,
-    py: number,
-    start_y: number,
-    header_h: number,
-  ): boolean {
-    return this.engine.hit_test_col_toggle(px, py, start_y, header_h);
+  /** Returns col_group index or -1 */
+  hit_test_col_group_toggle(px: number, py: number): number {
+    return this.engine.hit_test_col_group_toggle(px, py);
   }
 
-  toggle_col_group(): void {
-    this.engine.toggle_col_group();
+  toggle_col_group(groupIdx: number): void {
+    this.engine.toggle_col_group(groupIdx);
+  }
+
+  is_col_group_expanded(groupIdx: number): boolean {
+    return this.engine.is_col_group_expanded(groupIdx);
+  }
+
+  col_group_count(): number {
+    return this.engine.col_group_count();
   }
 
   hit_test_row(
@@ -88,7 +97,7 @@ export class PivotService {
   }
 
   get_col_widths(): number[] {
-    return this.engine.get_col_widths();
+    return Array.from(this.engine.get_col_widths());
   }
 
   set_col_width(colIdx: number, width: number) {
@@ -96,23 +105,11 @@ export class PivotService {
   }
 
   get_visible_col_widths(): number[] {
-    return this.engine.get_visible_col_widths();
+    return Array.from(this.engine.get_visible_col_widths());
   }
 
   set_visible_col_width(visibleIdx: number, width: number) {
     this.engine.set_visible_col_width(visibleIdx, width);
-  }
-
-  set_scroll_x(v: number) {
-    this.engine.set_scroll_x(v);
-  }
-
-  get_scroll_x(): number {
-    return this.engine.get_scroll_x();
-  }
-
-  hscrollbar_thumb_rect(): number[] {
-    return Array.from(this.engine.hscrollbar_thumb_rect());
   }
 
   swap_visible_columns(from: number, to: number): void {
