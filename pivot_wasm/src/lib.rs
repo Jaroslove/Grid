@@ -250,7 +250,6 @@ impl PivotEngine {
         if from_visible_idx == to_visible_idx {
             return;
         }
-        // 0 = competition (pinned, not swappable), 1 = season
         if from_visible_idx == 0 || to_visible_idx == 0 {
             return;
         }
@@ -260,36 +259,39 @@ impl PivotEngine {
             return;
         }
 
-        let from_wi = vcs[from_visible_idx].width_idx;
-        let to_wi = vcs[to_visible_idx].width_idx;
+        let from_vc = vcs[from_visible_idx].clone();
+        let to_vc = vcs[to_visible_idx].clone();
 
-        // Only swap within the same col_group (member columns)
-        // or swap whole col-group headers — for simplicity we swap widths only
-        // and re-order col_groups or member lists accordingly.
-        let from_cg = vcs[from_visible_idx].col_group_idx;
-        let to_cg = vcs[to_visible_idx].col_group_idx;
-
-        if from_cg == to_cg {
-            if let Some(cgi) = from_cg {
-                // swap members within same group
-                let members = &mut self.col_groups[cgi].members;
-                // find positions
-                let fk = vcs[from_visible_idx].key.clone();
-                let tk = vcs[to_visible_idx].key.clone();
+        match (from_vc.col_group_idx, to_vc.col_group_idx) {
+            // ── Same col-group, both are member cols ("group::member" key) ───
+            (Some(fgi), Some(tgi))
+                if fgi == tgi && from_vc.key.contains("::") && to_vc.key.contains("::") =>
+            {
+                let bare = |k: &str| k.splitn(2, "::").nth(1).unwrap_or(k).to_string();
+                let fk_bare = bare(&from_vc.key);
+                let tk_bare = bare(&to_vc.key);
+                let members = &mut self.col_groups[fgi].members;
                 if let (Some(fi), Some(ti)) = (
-                    members.iter().position(|m| m == &fk),
-                    members.iter().position(|m| m == &tk),
+                    members.iter().position(|m| m == &fk_bare),
+                    members.iter().position(|m| m == &tk_bare),
                 ) {
                     members.swap(fi, ti);
+                    // Swap widths so each team keeps its pixel width after reorder
+                    let fwi = self.width_idx_for(&from_vc.key);
+                    let twi = self.width_idx_for(&to_vc.key);
+                    self.col_widths.swap(fwi, twi);
                 }
             }
-            self.col_widths.swap(from_wi, to_wi);
-        } else {
-            // swap whole col groups
-            if let (Some(fgi), Some(tgi)) = (from_cg, to_cg) {
+
+            // ── Different col-groups: swap the whole groups ──────────────────
+            (Some(fgi), Some(tgi)) if fgi != tgi => {
                 self.col_groups.swap(fgi, tgi);
+                // Width slots are keyed by string — order comes from col_groups vec,
+                // no col_widths swap needed here.
             }
-            self.col_widths.swap(from_wi, to_wi);
+
+            // season col or any other unhandled case — ignore
+            _ => {}
         }
     }
 
