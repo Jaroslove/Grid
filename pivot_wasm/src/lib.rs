@@ -716,8 +716,10 @@ impl PivotEngine {
             }
         }
 
-        let winner_members: Vec<String> = winner_set.into_iter().collect();
-        let runner_up_members: Vec<String> = runner_up_set.into_iter().collect();
+        let mut winner_members: Vec<String> = winner_set.into_iter().collect();
+        winner_members.sort();
+        let mut runner_up_members: Vec<String> = runner_up_set.into_iter().collect();
+        runner_up_members.sort();
 
         self.col_groups = vec![
             ColGroup {
