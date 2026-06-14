@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::prelude::*;
-use web_sys::CanvasRenderingContext2d;
+use web_sys::{CanvasRenderingContext2d, console};
+
+use crate::log_utility::log_to_console;
+
+mod log_utility;
 
 const FIXED_COL: &str = "competition";
 const GROUP_COL: &str = "season";
@@ -15,14 +19,14 @@ pub struct DataRow {
     pub fields: HashMap<String, String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct Group {
     competition: String,
     row_indices: Vec<usize>,
 }
 
 /// Describes a column group (winner or runner_up)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 struct ColGroup {
     key: String,   // "winner" or "runner_up"
     label: String, // display label
@@ -33,6 +37,7 @@ struct ColGroup {
 // ─── Core Engine ────────────────────────────────────────────────────────────
 
 #[wasm_bindgen]
+#[derive(Serialize)]
 pub struct PivotEngine {
     data: Vec<DataRow>,
     /// All raw columns found in data (for width storage)
@@ -662,9 +667,12 @@ impl PivotEngine {
             map.entry(comp).or_default().push(idx);
         }
 
+        log_to_console(&map);
+
         let mut groups: Vec<Group> = Vec::with_capacity(order.len());
         for comp in order {
             let mut row_indices = map.remove(&comp).unwrap_or_default();
+            log_to_console(&row_indices);
             row_indices.sort_by(|&a, &b| {
                 let sa = self.data[a]
                     .fields
@@ -687,7 +695,7 @@ impl PivotEngine {
             });
         }
         self.groups = groups;
-
+        log_to_console(&self.groups);
         // Build col_groups
         let mut winner_members: Vec<String> = {
             let mut set = HashSet::new();
@@ -730,6 +738,7 @@ impl PivotEngine {
                 members: runner_up_members,
             },
         ];
+        log_to_console(&self.col_groups);
     }
 
     fn compute_columns_and_widths(
