@@ -697,32 +697,27 @@ impl PivotEngine {
         self.groups = groups;
         log_to_console(&self.groups);
         // Build col_groups
-        let mut winner_members: Vec<String> = {
-            let mut set = HashSet::new();
-            for row in &self.data {
-                if let Some(v) = row.fields.get(WINNER_COL) {
-                    if !v.is_empty() {
-                        set.insert(v.clone());
-                    }
+        let mut winner_set = HashSet::new();
+        let mut runner_up_set = HashSet::new();
+
+        for row in &self.data {
+            if let Some(v) = row.fields.get(WINNER_COL) {
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    winner_set.insert(trimmed.to_string());
                 }
             }
-            let mut v: Vec<String> = set.into_iter().collect();
-            v.sort();
-            v
-        };
-        let mut runner_up_members: Vec<String> = {
-            let mut set = HashSet::new();
-            for row in &self.data {
-                if let Some(v) = row.fields.get(RUNNER_UP_COL) {
-                    if !v.is_empty() {
-                        set.insert(v.clone());
-                    }
+
+            if let Some(v) = row.fields.get(RUNNER_UP_COL) {
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    runner_up_set.insert(trimmed.to_string());
                 }
             }
-            let mut v: Vec<String> = set.into_iter().collect();
-            v.sort();
-            v
-        };
+        }
+
+        let winner_members: Vec<String> = winner_set.into_iter().collect();
+        let runner_up_members: Vec<String> = runner_up_set.into_iter().collect();
 
         self.col_groups = vec![
             ColGroup {
